@@ -15,6 +15,7 @@ public class ShowDailog extends JDialog {
     private JScrollPane mScrollPane;
     private JTable mTable;
     private JComboBox mTypeComboBox;
+    private JCheckBox mViewHolderCheckBox;
     private JCheckBox mKotlinCheckBox;
 
     private OnClickListener mClickListener;
@@ -67,6 +68,11 @@ public class ShowDailog extends JDialog {
             }
         });
 
+//        mKotlinCheckBox.setSelected(Config.get().getFileType() == FileType.KOTLIN);
+        mKotlinCheckBox.setVisible(false);
+//        mViewHolderCheckBox.setSelected(Config.get().getClassType() == ClassType.ADAPTER);
+        mViewHolderCheckBox.setVisible(false);
+
         mButtonOK.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 onOK();
@@ -97,7 +103,7 @@ public class ShowDailog extends JDialog {
 
     private void onOK() {
         if (mClickListener != null) {
-            mClickListener.onOk();
+            mClickListener.onOk(mKotlinCheckBox.isSelected());
         }
         dispose();
     }
@@ -114,7 +120,7 @@ public class ShowDailog extends JDialog {
     }
 
     public interface OnClickListener {
-        void onOk();
+        void onOk(boolean kotlin);
 
         default void onCancel() {
 
@@ -249,7 +255,7 @@ public class ShowDailog extends JDialog {
 
     public static void main(String[] args) {
         ShowDailog dialog = new ShowDailog(Arrays.asList(new ResBean("TextView", "@+id/aaa_bbb")));
-        dialog.setClickListener(() -> {
+        dialog.setClickListener((boolean kotlin) -> {
 
         });
         dialog.pack();

@@ -1,49 +1,60 @@
 package com.dairy.findview;
 
 import com.intellij.codeInsight.actions.ReformatCodeProcessor;
+import com.intellij.lang.jvm.JvmModifier;
 import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.MessageType;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.JavaCodeStyleManager;
-import com.intellij.psi.search.GlobalSearchScope;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class ViewCreateFactory extends WriteCommandAction.Simple {
+public class ViewCreateFactory {
 
     private List<ResBean> resBeans;
     private PsiElementFactory factory;
     private PsiClass psiClass;
     private PsiFile psiFile;
+    private boolean mIsKotlin = false;
 
-    public ViewCreateFactory(List<ResBean> resIdBeans, PsiClass psiClass, PsiFile files) {
-        this(files.getProject(), files);
+    public ViewCreateFactory(List<ResBean> resIdBeans, PsiFile files) {
+        this(resIdBeans, files, false);
+    }
+
+    public ViewCreateFactory(List<ResBean> resIdBeans, PsiFile files, boolean mIsKotlin) {
         this.resBeans = resIdBeans;
-        this.psiClass = psiClass;
         this.psiFile = files;
+        this.psiClass = Utils.getTargetClass(psiFile);
         factory = JavaPsiFacade.getElementFactory(psiClass.getProject());
+        this.mIsKotlin = mIsKotlin;
     }
 
-    private ViewCreateFactory(@Nullable Project project, PsiFile... files) {
-        super(project, files);
-    }
 
-    @Override
-    protected void run() throws Throwable {
-        //生成成员变量
-        generateFields();
-        //生成方法
-        generateFindViewById();
-        //调用方法
-        performFunction();
-        //格式化
-        JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(psiClass.getProject());
-        styleManager.optimizeImports(psiFile);
-        styleManager.shortenClassReferences(psiClass);
-        new ReformatCodeProcessor(psiClass.getProject(), psiClass.getContainingFile(), null, false).runWithoutProgress();
-    }
+    public Runnable mRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (Utils.isAdapter(psiFile, psiClass)) {
+                generateAdapter();
+            } else {
+                //生成成员变量
+                generateFields();
+                //生成方法
+                generateFindViewById();
+                //调用方法
+                performFunction();
+            }
+            //格式化
+            JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(psiClass.getProject());
+            styleManager.optimizeImports(psiFile);
+            styleManager.shortenClassReferences(psiClass);
+            new ReformatCodeProcessor(psiClass.getProject(), psiClass.getContainingFile(), null, false).runWithoutProgress();
 
+        }
+    };
+
+    public void execute() {
+        WriteCommandAction.runWriteCommandAction(psiFile.getProject(), mRunnable);
+    }
 
     private void generateFields() {
         try {
@@ -53,16 +64,130 @@ public class ViewCreateFactory extends WriteCommandAction.Simple {
                     psiClass.add(field);
                 }
             }
-        } catch (Throwable ignored) {
-
+        } catch (Throwable t) {
+            Utils.showNotification(psiFile.getProject(), MessageType.ERROR, t.getMessage());
         }
+    }
 
+    private boolean isRecyclerViewAdapter() {
+        return psiClass.findMethodsByName("onCreateViewHolder", false).length != 0
+                && psiClass.findMethodsByName("onBindViewHolder", false).length != 0;
+    }
+
+    private void generateAdapter() {
+        try {
+            boolean recycler = isRecyclerViewAdapter();
+            PsiClass holderClass = null;
+            if (recycler) {
+                for (PsiClass inner : psiClass.getAllInnerClasses()) {
+                    if (Utils.isFitClass(psiFile, inner, "android.support.v7.widget.RecyclerView.ViewHolder")) {
+                        holderClass = inner;
+                        break;
+                    }
+                }
+            } else {
+                for (PsiClass inner : psiClass.getAllInnerClasses()) {
+                    if (inner.getName() != null && inner.getName().contains("ViewHolder")) {
+                        holderClass = inner;
+                        break;
+                    }
+                }
+            }
+            StringBuilder holderField = new StringBuilder();
+            for (ResBean resBean : resBeans) {
+                if (resBean.isChecked()) {
+                    holderField.append("public ")
+                            .append(resBean.getFullName())
+                            .append(" ")
+                            .append(resBean.getFieldName())
+                            .append(";\n");
+                }
+            }
+            StringBuilder holderMethod = new StringBuilder();
+
+            PsiMethod findMethod = null;
+            PsiCodeBlock methodBody = null;
+
+            if (holderClass != null && holderClass.getConstructors().length != 0) {
+                findMethod = holderClass.getConstructors()[0];
+            }
+            if (findMethod == null) {
+                holderMethod.append("public ")
+                        .append(holderClass == null ? "ViewHolder" : holderClass.getName())
+                        .append(" (View itemView) {");
+            } else {
+                methodBody = findMethod.getBody();
+                if (methodBody != null) {
+                    holderMethod.append(methodBody.getText());
+                    holderMethod.deleteCharAt(holderMethod.length() - 1);
+                }
+            }
+            if (recycler && holderMethod.indexOf("super") == -1) {
+                holderMethod.append("super(itemView);\n");
+            }
+            for (ResBean resBean : resBeans) {
+                if (resBean.isChecked()) {
+                    String findId = "findViewById(" + resBean.getFullId() + ");";
+                    if (methodBody == null || !methodBody.getText().contains(findId)) {
+                        holderMethod.append("this.")
+                                .append(resBean.getFieldName())
+                                .append(" = ")
+                                .append("itemView.")
+                                .append(findId)
+                                .append("\n");
+                    }
+                }
+            }
+            if (methodBody != null) {
+                methodBody.delete();
+            }
+            holderMethod.append("}");
+            holderField.append(holderMethod);
+            if (holderClass == null) {
+                if (recycler) {
+                    StringBuilder holdClass = new StringBuilder();
+                    holdClass.append("class ViewHolder extends RecyclerView.ViewHolder {");
+                    holdClass.append(holderField);
+                    holdClass.append("}");
+                    holderClass = factory.createClassFromText(holdClass.toString(), psiClass);
+                    holderClass = holderClass.getInnerClasses()[0];
+                } else {
+                    holderClass = factory.createClassFromText(holderField.toString(), psiClass);
+                    holderClass.setName("ViewHolder");
+                    holderClass.getModifierList().setModifierProperty(PsiModifier.PUBLIC, true);
+                    holderClass.getModifierList().setModifierProperty(PsiModifier.STATIC, true);
+                }
+
+                psiClass.add(holderClass);
+            } else {
+                if (!holderClass.hasModifier(JvmModifier.PUBLIC)) {
+                    holderClass.getModifierList().setModifierProperty(PsiModifier.PUBLIC, true);
+                }
+                if (!holderClass.hasModifier(JvmModifier.STATIC)) {
+                    holderClass.getModifierList().setModifierProperty(PsiModifier.STATIC, true);
+                }
+                PsiElementFactory holderFactory = JavaPsiFacade.getElementFactory(holderClass.getProject());
+                for (ResBean resBean : resBeans) {
+                    if (holderClass.findFieldByName(resBean.getFieldName(), false) == null && resBean.isChecked()) {
+                        PsiField field = holderFactory.createFieldFromText("public " + resBean.getFullName() + " " + resBean.getFieldName() + ";", holderClass);
+                        holderClass.add(field);
+                    }
+                }
+                if (findMethod == null) {
+                    holderClass.add(holderFactory.createMethodFromText(holderMethod.toString(), holderClass));
+                } else {
+                    findMethod.add(factory.createCodeBlockFromText(holderMethod.toString(), findMethod));
+                }
+            }
+        } catch (Throwable t) {
+            Utils.showNotification(psiFile.getProject(), MessageType.ERROR, t.getMessage());
+        }
     }
 
     private void generateFindViewById() {
         try {
             StringBuilder createMethod = new StringBuilder();
-            boolean activity = isActivity();
+            boolean activity = Utils.isActivity(psiFile, psiClass);
             if (activity) {
                 createMethod.append("private void initViews(){}");
             } else {
@@ -96,14 +221,14 @@ public class ViewCreateFactory extends WriteCommandAction.Simple {
                     findViewsMethod.add(factory.createCodeBlockFromText(codeBlock.toString(), findViewsMethod));
                 }
             }
-        } catch (Throwable ignored) {
-
+        } catch (Throwable t) {
+            Utils.showNotification(psiFile.getProject(), MessageType.ERROR, t.getMessage());
         }
     }
 
     private void performFunction() {
         try {
-            boolean activity = isActivity();
+            boolean activity = Utils.isActivity(psiFile, psiClass);
             if (activity) {
                 PsiMethod[] methods = psiClass.findMethodsByName("onCreate", false);
                 if (methods.length > 0) {
@@ -147,19 +272,9 @@ public class ViewCreateFactory extends WriteCommandAction.Simple {
                     }
                 }
             }
-        } catch (Throwable ignored) {
-
+        } catch (Throwable t) {
+            Utils.showNotification(psiFile.getProject(), MessageType.ERROR, t.getMessage());
         }
     }
 
-    private boolean isActivity() {
-        GlobalSearchScope scope = GlobalSearchScope.allScope(psiFile.getProject());
-        PsiClass activityClass = JavaPsiFacade.getInstance(psiFile.getProject()).findClass(
-                "android.app.Activity", scope);
-        PsiClass appActivityClass = JavaPsiFacade.getInstance(psiFile.getProject()).findClass(
-                "android.support.v7.app.AppCompatActivity", scope);
-        return (activityClass != null && psiClass.isInheritor(activityClass, false))
-                || (appActivityClass != null && psiClass.isInheritor(appActivityClass, false))
-                || (psiClass.getName() != null && psiClass.getName().contains("Activity"));
-    }
 }

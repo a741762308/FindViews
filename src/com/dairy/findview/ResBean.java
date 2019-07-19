@@ -28,7 +28,7 @@ public class ResBean {
             this.fullName = name;
             this.name = packages[packages.length - 1];
         } else {
-            this.fullName = null;
+            this.fullName = name;
             this.name = name;
         }
     }
@@ -47,6 +47,10 @@ public class ResBean {
 
     public String getName() {
         return name;
+    }
+
+    public String getFullName() {
+        return fullName;
     }
 
     public String getFieldName() {

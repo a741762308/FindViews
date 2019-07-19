@@ -10,10 +10,7 @@ import com.intellij.openapi.ui.popup.Balloon;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.WindowManager;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.XmlRecursiveElementVisitor;
+import com.intellij.psi.*;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.PsiShortNamesCache;
@@ -25,6 +22,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Utils {
+
+    private static String[] sActivityClass = new String[]{
+            "android.app.Activity",
+            "android.support.v7.app.AppCompatActivity"
+    };
+    private static String[] sAdapterClass = new String[]{
+            "android.widget.BaseAdapter",
+            "android.widget.SimpleAdapter",
+            "android.widget.ArrayAdapter",
+            "android.widget.SimpleCursorAdapter",
+            "android.widget.SimpleExpandableListAdapter",
+            "android.widget.HeaderViewListAdapter",
+            "android.support.v7.widget.RecyclerView.Adapter"
+    };
+
 
     public static List<ResBean> getResBeanFromFile(PsiFile psiFile, Editor editor) {
         final List<ResBean> resBeans = new ArrayList<>();
@@ -97,18 +109,32 @@ public class Utils {
 
     public static PsiFile getFileFromElement(PsiElement element) {
         if (element != null) {
-            PsiElement layout = element.getParent();
-            if (layout != null) {
-                String path = layout.getText();
-                if (path.startsWith("R.layout.") || path.startsWith("android.R.layout")) {
-                    String name = String.format("%s.xml", element.getText());
-                    return getFileByName(element, element.getProject(), name);
-                }
+            //java
+            PsiFile file = getFileParent(element, element.getParent());
+            if (file != null) {
+                Config.get().setFileType(FileType.JAVA);
+                return file;
+            }
+            //kotlin
+            file = getFileParent(element, element.getParent().getParent());
+            if (file != null) {
+                Config.get().setFileType(FileType.KOTLIN);
+                return file;
             }
         }
         return null;
     }
 
+    private static PsiFile getFileParent(PsiElement element, PsiElement parent) {
+        if (element != null && parent != null) {
+            String path = parent.getText();
+            if (path.startsWith("R.layout.") || path.startsWith("android.R.layout")) {
+                String name = String.format("%s.xml", element.getText());
+                return getFileByName(element, element.getProject(), name);
+            }
+        }
+        return null;
+    }
 
     public static PsiFile getFileByName(PsiFile psiFile, String fileName) {
         String name = String.format("%s.xml", fileName);
@@ -132,6 +158,28 @@ public class Utils {
         String fullName = classFile.getName();
         String className = fullName.split("\\.")[0];
         return PsiShortNamesCache.getInstance(classFile.getProject()).getClassesByName(className, globalSearchScope)[0];
+    }
+
+    public static boolean isActivity(PsiFile psiFile, PsiClass psiClass) {
+        return isFitClass(psiFile, psiClass, sActivityClass) ||
+                (psiClass.getName() != null && psiClass.getName().contains("Activity"));
+    }
+
+    public static boolean isAdapter(PsiFile psiFile, PsiClass psiClass) {
+        return (isFitClass(psiFile, psiClass, sAdapterClass)) ||
+                (psiClass.getName() != null && psiClass.getName().contains("Adapter"));
+    }
+
+    public static boolean isFitClass(PsiFile psiFile, PsiClass psiClass, String... classArray) {
+        GlobalSearchScope scope = GlobalSearchScope.allScope(psiFile.getProject());
+        for (String classString : classArray) {
+            PsiClass activityClass = JavaPsiFacade.getInstance(psiFile.getProject()).findClass(
+                    classString, scope);
+            if (activityClass != null && psiClass.isInheritor(activityClass, false)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static void showNotification(Project project, MessageType type, String text) {
