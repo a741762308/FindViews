@@ -1,8 +1,7 @@
 package com.dairy.findview;
 
 import javax.swing.*;
-import javax.swing.event.TableModelListener;
-import javax.swing.table.TableModel;
+import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.Arrays;
@@ -15,8 +14,11 @@ public class ShowDailog extends JDialog {
     private JButton mButtonCancel;
     private JScrollPane mScrollPane;
     private JTable mTable;
+    private JComboBox mTypeComboBox;
+    private JCheckBox mKotlinCheckBox;
 
     private OnClickListener mClickListener;
+    private final TableModelProxy mTableModel;
 
     public ShowDailog(List<ResBean> resBeanList) {
         setPreferredSize(new Dimension(600, 300));
@@ -25,8 +27,45 @@ public class ShowDailog extends JDialog {
         getRootPane().setDefaultButton(mButtonOK);
 
         String[] columnNames = {"", "Element", "ID", "Name"};
-        TableModelProxy tableModel = new TableModelProxy(columnNames, resBeanList);
-        mTable.setModel(tableModel);
+        mTableModel = new TableModelProxy(columnNames, resBeanList);
+        mTable.setModel(mTableModel);
+        mTable.setDragEnabled(false);
+        mTable.setCellSelectionEnabled(false);
+        mTable.setRowSelectionAllowed(false);
+        mTable.setShowHorizontalLines(true);
+        mTable.setShowVerticalLines(true);
+
+        TableColumn tableColumn = mTable.getColumnModel().getColumn(0);
+        tableColumn.setCellEditor(mTable.getDefaultEditor(Boolean.class));
+        tableColumn.setCellRenderer(mTable.getDefaultRenderer(Boolean.class));
+        tableColumn.setPreferredWidth(33);
+        tableColumn.setMaxWidth(33);
+        tableColumn.setMinWidth(33);
+
+        DefaultTableCellRenderer cellRenderer = new DefaultTableCellRenderer();
+        cellRenderer.setHorizontalAlignment(JLabel.CENTER);
+        cellRenderer.setVerticalAlignment(JLabel.CENTER);
+        mTable.setDefaultRenderer(Object.class, cellRenderer);
+
+        CheckBoxHeaderRenderer headerRenderer = new CheckBoxHeaderRenderer();
+        mTable.getTableHeader().setReorderingAllowed(false);
+        mTable.getTableHeader().setDefaultRenderer(headerRenderer);
+
+        mTypeComboBox.addItem("aa_bb_cc");
+        mTypeComboBox.addItem("aaBbCc");
+        mTypeComboBox.addItem("mAaBbCc");
+        mTypeComboBox.setSelectedItem("mAaBbCc");
+        mTypeComboBox.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    for (ResBean bean : resBeanList) {
+                        bean.setNameType(mTypeComboBox.getSelectedIndex() + 1);
+                    }
+                }
+                mTableModel.fireTableDataChanged();
+            }
+        });
 
         mButtonOK.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -82,7 +121,7 @@ public class ShowDailog extends JDialog {
         }
     }
 
-    private class TableModelProxy implements TableModel {
+    private class TableModelProxy extends AbstractTableModel {
         private String[] columnData;
         private List<ResBean> datas;
 
@@ -142,20 +181,74 @@ public class ShowDailog extends JDialog {
                 bean.setChecked((Boolean) aValue);
             }
         }
+    }
 
-        @Override
-        public void addTableModelListener(TableModelListener l) {
+    class CheckBoxHeaderRenderer implements TableCellRenderer {
+        private JTableHeader mTableHeader;
+        private JCheckBox mCheckBox;
 
+        public CheckBoxHeaderRenderer() {
+            mTableHeader = mTable.getTableHeader();
+            mCheckBox = new JCheckBox();
+            mCheckBox.setSelected(true);
+            mTableHeader.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    int selectColumn = mTableHeader.columnAtPoint(e.getPoint());
+                    if (selectColumn == 0) {
+                        mCheckBox.setSelected(!mCheckBox.isSelected());
+                        mTableHeader.repaint();
+
+                        if (mCheckBox.isSelected()) {
+                            selectAll();
+                        } else {
+                            selectNone();
+                        }
+                    }
+                }
+            });
+        }
+
+        private void selectAll() {
+            for (int i = 0; i < mTableModel.getRowCount(); i++) {
+                mTableModel.setValueAt(true, i, 0);
+            }
+            mTableModel.fireTableDataChanged();
+        }
+
+        private void selectNone() {
+            for (int i = 0; i < mTableModel.getRowCount(); i++) {
+                mTableModel.setValueAt(false, i, 0);
+            }
+            mTableModel.fireTableDataChanged();
         }
 
         @Override
-        public void removeTableModelListener(TableModelListener l) {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            String v;
+            if (value instanceof String) {
+                v = (String) value;
+            } else {
+                v = "";
+            }
 
+            JLabel label = new JLabel(v);
+            label.setHorizontalAlignment(SwingConstants.CENTER);
+            label.setVerticalAlignment(SwingConstants.CENTER);
+            mCheckBox.setHorizontalAlignment(SwingConstants.CENTER);
+            mCheckBox.setVerticalAlignment(SwingConstants.CENTER);
+            mCheckBox.setBorderPainted(true);
+            JComponent component = column == 0 ? mCheckBox : label;
+            component.setForeground(mTableHeader.getForeground());
+            component.setBackground(mTableHeader.getBackground());
+            component.setFont(mTableHeader.getFont());
+            component.setBorder(UIManager.getBorder("TableHeader.cellBorder"));
+            return component;
         }
     }
 
     public static void main(String[] args) {
-        ShowDailog dialog = new ShowDailog(Arrays.asList(new ResBean("TextView", "@+id/aaa")));
+        ShowDailog dialog = new ShowDailog(Arrays.asList(new ResBean("TextView", "@+id/aaa_bbb")));
         dialog.setClickListener(() -> {
 
         });

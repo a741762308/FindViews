@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 public class ResBean {
     private static final Pattern sIdPattern = Pattern.compile("@\\+?(android:)?id/([^$]+)$", Pattern.CASE_INSENSITIVE);
 
-    private boolean isChecked=true;
+    private boolean isChecked = true;
     private String name;
     private String fullName;
     private boolean isSystem;
@@ -33,6 +33,10 @@ public class ResBean {
         }
     }
 
+    public void setNameType(int nameType) {
+        this.nameType = nameType;
+    }
+
     public boolean isChecked() {
         return isChecked;
     }
@@ -57,6 +61,18 @@ public class ResBean {
                 String word = names[i];
                 sb.append(word.substring(0, 1).toUpperCase())
                         .append(word.substring(1).toLowerCase());
+            }
+            fieldName = sb.toString();
+        } else if (nameType == 2) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < names.length; i++) {
+                String word = names[i];
+                if (i == 0) {
+                    sb.append(word);
+                } else {
+                    sb.append(word.substring(0, 1).toUpperCase())
+                            .append(word.substring(1).toLowerCase());
+                }
             }
             fieldName = sb.toString();
         }
