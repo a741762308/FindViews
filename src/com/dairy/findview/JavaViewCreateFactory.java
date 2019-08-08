@@ -1,62 +1,77 @@
 package com.dairy.findview;
 
 import com.intellij.codeInsight.actions.ReformatCodeProcessor;
-import com.intellij.lang.jvm.JvmModifier;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.ui.MessageType;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.JavaCodeStyleManager;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-public class ViewCreateFactory {
+public class JavaViewCreateFactory extends BaseViewCreateFactory {
 
-    private List<ResBean> resBeans;
     private PsiElementFactory factory;
     private PsiClass psiClass;
-    private PsiFile psiFile;
-    private boolean mIsKotlin = false;
+    private boolean mIsActivity;
 
-    public ViewCreateFactory(List<ResBean> resIdBeans, PsiFile files) {
-        this(resIdBeans, files, false);
-    }
-
-    public ViewCreateFactory(List<ResBean> resIdBeans, PsiFile files, boolean mIsKotlin) {
-        this.resBeans = resIdBeans;
-        this.psiFile = files;
-        this.psiClass = Utils.getTargetClass(psiFile);
+    public JavaViewCreateFactory(@NotNull List<ResBean> resIdBeans, @NotNull PsiFile files, @NotNull PsiClass psiClass, AdapterType type) {
+        super(resIdBeans, files);
+        this.psiClass = psiClass;
+        mIsActivity = Utils.isJavaActivity(psiFile, psiClass);
         factory = JavaPsiFacade.getElementFactory(psiClass.getProject());
-        this.mIsKotlin = mIsKotlin;
+        mAdapterType = type.index;
     }
 
+    public JavaViewCreateFactory(@NotNull List<ResBean> resIdBeans, @NotNull PsiFile files, @NotNull PsiClass psiClass) {
+        this(resIdBeans, files, psiClass, AdapterType.ADAPTER_NONE);
+    }
 
-    public Runnable mRunnable = new Runnable() {
+    private Runnable mRunnable = new Runnable() {
         @Override
         public void run() {
-            if (Utils.isAdapter(psiFile, psiClass)) {
-                generateAdapter();
-            } else {
-                //生成成员变量
-                generateFields();
-                //生成方法
-                generateFindViewById();
-                //调用方法
-                performFunction();
+            try {
+                if (Utils.isJavaAdapter(psiFile, psiClass) || isAdapterType()) {
+                    //适配器
+                    generateAdapter();
+                } else {
+                    //生成成员变量
+                    generateFields();
+                    //生成方法
+                    generateFindViewById();
+                    //调用方法
+                    performFunction();
+                }
+                formatCode();
+            } catch (Throwable t) {
+                Utils.showNotification(psiClass.getProject(), MessageType.ERROR, t.getMessage());
             }
-            //格式化
-            JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(psiClass.getProject());
-            styleManager.optimizeImports(psiFile);
-            styleManager.shortenClassReferences(psiClass);
-            new ReformatCodeProcessor(psiClass.getProject(), psiClass.getContainingFile(), null, false).runWithoutProgress();
-
         }
     };
 
+    @Override
     public void execute() {
-        WriteCommandAction.runWriteCommandAction(psiFile.getProject(), mRunnable);
+        if (psiFile != null) {
+            WriteCommandAction.runWriteCommandAction(psiFile.getProject(), mRunnable);
+        }
     }
 
-    private void generateFields() {
+    /**
+     * 格式化
+     */
+    @Override
+    protected void formatCode() {
+        JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(psiClass.getProject());
+        styleManager.optimizeImports(psiClass.getContainingFile());
+        styleManager.shortenClassReferences(psiClass);
+        new ReformatCodeProcessor(psiClass.getProject(), psiClass.getContainingFile(), null, false).runWithoutProgress();
+    }
+
+    /**
+     * 变量
+     */
+    @Override
+    protected void generateFields() {
         try {
             for (ResBean resBean : resBeans) {
                 if (psiClass.findFieldByName(resBean.getFieldName(), false) == null && resBean.isChecked()) {
@@ -70,17 +85,21 @@ public class ViewCreateFactory {
     }
 
     private boolean isRecyclerViewAdapter() {
-        return psiClass.findMethodsByName("onCreateViewHolder", false).length != 0
+        return isRecyclerAdapter() || psiClass.findMethodsByName("onCreateViewHolder", false).length != 0
                 && psiClass.findMethodsByName("onBindViewHolder", false).length != 0;
     }
 
-    private void generateAdapter() {
+    /**
+     * adapter
+     */
+    @Override
+    protected void generateAdapter() {
         try {
             boolean recycler = isRecyclerViewAdapter();
             PsiClass holderClass = null;
             if (recycler) {
                 for (PsiClass inner : psiClass.getAllInnerClasses()) {
-                    if (Utils.isFitClass(psiFile, inner, "android.support.v7.widget.RecyclerView.ViewHolder")) {
+                    if (Utils.isJavaFitClass(psiFile, inner, "android.support.v7.widget.RecyclerView.ViewHolder")) {
                         holderClass = inner;
                         break;
                     }
@@ -145,26 +164,29 @@ public class ViewCreateFactory {
             holderField.append(holderMethod);
             if (holderClass == null) {
                 if (recycler) {
-                    StringBuilder holdClass = new StringBuilder();
-                    holdClass.append("class ViewHolder extends RecyclerView.ViewHolder {");
-                    holdClass.append(holderField);
-                    holdClass.append("}");
-                    holderClass = factory.createClassFromText(holdClass.toString(), psiClass);
+                    String holdClass = "class ViewHolder extends RecyclerView.ViewHolder {" +
+                            holderField +
+                            "}";
+                    holderClass = factory.createClassFromText(holdClass, psiClass);
                     holderClass = holderClass.getInnerClasses()[0];
                 } else {
                     holderClass = factory.createClassFromText(holderField.toString(), psiClass);
                     holderClass.setName("ViewHolder");
-                    holderClass.getModifierList().setModifierProperty(PsiModifier.PUBLIC, true);
-                    holderClass.getModifierList().setModifierProperty(PsiModifier.STATIC, true);
+                    if (holderClass.getModifierList() != null) {
+                        holderClass.getModifierList().setModifierProperty(PsiModifier.PUBLIC, true);
+                        holderClass.getModifierList().setModifierProperty(PsiModifier.STATIC, true);
+                    }
                 }
 
                 psiClass.add(holderClass);
             } else {
-                if (!holderClass.hasModifier(JvmModifier.PUBLIC)) {
-                    holderClass.getModifierList().setModifierProperty(PsiModifier.PUBLIC, true);
-                }
-                if (!holderClass.hasModifier(JvmModifier.STATIC)) {
-                    holderClass.getModifierList().setModifierProperty(PsiModifier.STATIC, true);
+                if (holderClass.getModifierList() != null) {
+                    if (!holderClass.hasModifierProperty(PsiModifier.PUBLIC)) {
+                        holderClass.getModifierList().setModifierProperty(PsiModifier.PUBLIC, true);
+                    }
+                    if (!holderClass.hasModifierProperty(PsiModifier.STATIC)) {
+                        holderClass.getModifierList().setModifierProperty(PsiModifier.STATIC, true);
+                    }
                 }
                 PsiElementFactory holderFactory = JavaPsiFacade.getElementFactory(holderClass.getProject());
                 for (ResBean resBean : resBeans) {
@@ -184,14 +206,17 @@ public class ViewCreateFactory {
         }
     }
 
-    private void generateFindViewById() {
+    /**
+     * 方法
+     */
+    @Override
+    protected void generateFindViewById() {
         try {
             StringBuilder createMethod = new StringBuilder();
-            boolean activity = Utils.isActivity(psiFile, psiClass);
-            if (activity) {
-                createMethod.append("private void initViews(){}");
+            if (mIsActivity) {
+                createMethod.append("private void initViews() {}");
             } else {
-                createMethod.append("private void initViews(View view){}");
+                createMethod.append("private void initViews(View view) {}");
             }
             PsiMethod[] methods = psiClass.findMethodsByName("initViews", false);
             if (methods.length == 0) {
@@ -205,7 +230,7 @@ public class ViewCreateFactory {
                 String findId = "findViewById(" + resBean.getFullId() + ");";
                 if (resBean.isChecked() && methodBody != null && !methodBody.getText().contains(findId)) {
                     block.append(resBean.getFieldName()).append(" = ");
-                    if (!activity) {
+                    if (!mIsActivity) {
                         block.append("view.");
                     }
                     block.append(findId);
@@ -226,10 +251,13 @@ public class ViewCreateFactory {
         }
     }
 
-    private void performFunction() {
+    /**
+     * 调用方法
+     */
+    @Override
+    protected void performFunction() {
         try {
-            boolean activity = Utils.isActivity(psiFile, psiClass);
-            if (activity) {
+            if (mIsActivity) {
                 PsiMethod[] methods = psiClass.findMethodsByName("onCreate", false);
                 if (methods.length > 0) {
                     PsiMethod onCreate = methods[0];
@@ -242,9 +270,9 @@ public class ViewCreateFactory {
                                 setContentView = statement;
                             }
                         }
-                    }
-                    if (setContentView != null) {
-                        onCreate.getBody().addAfter(factory.createStatementFromText("initViews();", psiClass), setContentView);
+                        if (setContentView != null) {
+                            onCreate.getBody().addAfter(factory.createStatementFromText("initViews();", psiClass), setContentView);
+                        }
                     }
                 }
             } else {
@@ -253,13 +281,14 @@ public class ViewCreateFactory {
                     PsiMethod onCreateView = methods[0];
                     PsiStatement returnView;
                     if (onCreateView.getBody() != null) {
-                        for (PsiStatement statement : onCreateView.getBody().getStatements()) {
+                        PsiStatement[] statements = onCreateView.getBody().getStatements();
+                        for (PsiStatement statement : statements) {
                             if (statement.getText().contains("initViews")) {
                                 return;
                             }
                         }
-                        int count = onCreateView.getBody().getStatementCount();
-                        returnView = onCreateView.getBody().getStatements()[count - 1];
+                        int count = statements.length;
+                        returnView = statements[count - 1];
                         int index = returnView.getText().indexOf("inflater.inflate(");
                         if (index != -1) {
                             onCreateView.getBody().addBefore(factory.createStatementFromText("View view=" + returnView.getText().substring(index), psiClass), returnView);

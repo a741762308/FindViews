@@ -8,7 +8,7 @@ import java.util.Arrays;
 import java.util.List;
 
 
-public class ShowDailog extends JDialog {
+public class ShowDialog extends JDialog {
     private JPanel mContentPane;
     private JButton mButtonOK;
     private JButton mButtonCancel;
@@ -17,11 +17,12 @@ public class ShowDailog extends JDialog {
     private JComboBox mTypeComboBox;
     private JCheckBox mViewHolderCheckBox;
     private JCheckBox mKotlinCheckBox;
+    private JButton mSettings;
 
     private OnClickListener mClickListener;
     private final TableModelProxy mTableModel;
 
-    public ShowDailog(List<ResBean> resBeanList) {
+    public ShowDialog(List<ResBean> resBeanList) {
         setPreferredSize(new Dimension(600, 300));
         setContentPane(mContentPane);
         setModal(true);
@@ -68,10 +69,21 @@ public class ShowDailog extends JDialog {
             }
         });
 
-//        mKotlinCheckBox.setSelected(Config.get().getFileType() == FileType.KOTLIN);
-        mKotlinCheckBox.setVisible(false);
+        mKotlinCheckBox.setSelected(Config.get().getFileType() == FileType.KOTLIN);
+//        mKotlinCheckBox.setVisible(false);
 //        mViewHolderCheckBox.setSelected(Config.get().getClassType() == ClassType.ADAPTER);
         mViewHolderCheckBox.setVisible(false);
+
+        mSettings.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                SettingsDialog dialog = new SettingsDialog();
+                dialog.pack();
+                dialog.setLocationRelativeTo(null);
+                dialog.setVisible(true);
+            }
+        });
+        mSettings.setVisible(false);
 
         mButtonOK.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -254,7 +266,8 @@ public class ShowDailog extends JDialog {
     }
 
     public static void main(String[] args) {
-        ShowDailog dialog = new ShowDailog(Arrays.asList(new ResBean("TextView", "@+id/aaa_bbb")));
+        List<ResBean> resBeans = Arrays.asList(new ResBean("TextView", "@+id/aaa_bbb"));
+        ShowDialog dialog = new ShowDialog(resBeans);
         dialog.setClickListener((boolean kotlin) -> {
 
         });

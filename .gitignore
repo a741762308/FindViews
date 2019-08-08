@@ -8,4 +8,5 @@
 /.gradle
 /captures
 
+/*.zip
 /*.jar

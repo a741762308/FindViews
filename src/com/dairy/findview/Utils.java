@@ -17,6 +17,10 @@ import com.intellij.psi.search.PsiShortNamesCache;
 import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.ui.awt.RelativePoint;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.kotlin.asJava.KotlinAsJavaSupport;
+import org.jetbrains.kotlin.asJava.elements.KtLightElement;
+import org.jetbrains.kotlin.psi.KtClass;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +51,7 @@ public class Utils {
         return resBeans;
     }
 
-    private static List<ResBean> getResBeanFromFile(PsiFile file, List<ResBean> resBeans) {
+    private static List<ResBean> getResBeanFromFile(@NotNull PsiFile file, List<ResBean> resBeans) {
         file.accept(new XmlRecursiveElementVisitor() {
             @Override
             public void visitXmlTag(XmlTag tag) {
@@ -136,12 +140,12 @@ public class Utils {
         return null;
     }
 
-    public static PsiFile getFileByName(PsiFile psiFile, String fileName) {
+    public static PsiFile getFileByName(@NotNull PsiFile psiFile, String fileName) {
         String name = String.format("%s.xml", fileName);
         return getFileByName(psiFile, psiFile.getProject(), name);
     }
 
-    public static PsiFile getFileByName(PsiElement psiElement, Project project, String name) {
+    public static PsiFile getFileByName(@NotNull PsiElement psiElement, @NotNull Project project, String name) {
         Module moduleForPsiElement = ModuleUtil.findModuleForPsiElement(psiElement);
         if (moduleForPsiElement != null) {
             GlobalSearchScope searchScope = GlobalSearchScope.moduleScope(moduleForPsiElement);
@@ -153,24 +157,47 @@ public class Utils {
         return null;
     }
 
-    public static PsiClass getTargetClass(PsiFile classFile) {
+    public static PsiClass getJavaClass(@NotNull PsiFile classFile) {
         GlobalSearchScope globalSearchScope = GlobalSearchScope.fileScope(classFile);
         String fullName = classFile.getName();
         String className = fullName.split("\\.")[0];
         return PsiShortNamesCache.getInstance(classFile.getProject()).getClassesByName(className, globalSearchScope)[0];
     }
 
-    public static boolean isActivity(PsiFile psiFile, PsiClass psiClass) {
-        return isFitClass(psiFile, psiClass, sActivityClass) ||
-                (psiClass.getName() != null && psiClass.getName().contains("Activity"));
+    public static KtClass getKotlinClass(@NotNull PsiElement psiElement) {
+        if (psiElement instanceof KtLightElement) {
+            PsiElement origin = ((KtLightElement) psiElement).getKotlinOrigin();
+            if (origin != null) {
+                return getKotlinClass(origin);
+            } else {
+                return null;
+            }
+
+        } else if (psiElement instanceof KtClass && !((KtClass) psiElement).isEnum() &&
+                !((KtClass) psiElement).isInterface() &&
+                !((KtClass) psiElement).isAnnotation() &&
+                !((KtClass) psiElement).isSealed()) {
+            return (KtClass) psiElement;
+
+        } else {
+            PsiElement parent = psiElement.getParent();
+            if (parent == null) {
+                return null;
+            } else {
+                return getKotlinClass(parent);
+            }
+        }
     }
 
-    public static boolean isAdapter(PsiFile psiFile, PsiClass psiClass) {
-        return (isFitClass(psiFile, psiClass, sAdapterClass)) ||
-                (psiClass.getName() != null && psiClass.getName().contains("Adapter"));
+    public static boolean isJavaActivity(@NotNull PsiFile psiFile, @NotNull PsiClass psiClass) {
+        return isJavaFitClass(psiFile, psiClass, sActivityClass) || isActivity(psiClass.getName());
     }
 
-    public static boolean isFitClass(PsiFile psiFile, PsiClass psiClass, String... classArray) {
+    public static boolean isJavaAdapter(@NotNull PsiFile psiFile, @NotNull PsiClass psiClass) {
+        return isJavaFitClass(psiFile, psiClass, sAdapterClass) || isAdapter(psiClass.getName());
+    }
+
+    public static boolean isJavaFitClass(@NotNull PsiFile psiFile, @NotNull PsiClass psiClass, String... classArray) {
         GlobalSearchScope scope = GlobalSearchScope.allScope(psiFile.getProject());
         for (String classString : classArray) {
             PsiClass activityClass = JavaPsiFacade.getInstance(psiFile.getProject()).findClass(
@@ -182,7 +209,32 @@ public class Utils {
         return false;
     }
 
-    public static void showNotification(Project project, MessageType type, String text) {
+    public static boolean isKotlinActivity(@NotNull PsiFile psiFile, @NotNull KtClass ktClass) {
+        return isKotlinFitClass(psiFile, ktClass, sActivityClass) || isActivity(ktClass.getName());
+    }
+
+    public static boolean isKotlinAdapter(@NotNull PsiFile psiFile, @NotNull KtClass ktClass) {
+        return isKotlinFitClass(psiFile, ktClass, sAdapterClass) || isAdapter(ktClass.getName());
+    }
+
+    public static boolean isKotlinFitClass(@NotNull PsiFile psiFile, @NotNull KtClass ktClass, String... classArray) {
+        PsiClass psiClass = KotlinAsJavaSupport.getInstance(psiFile.getProject()).getLightClass(ktClass);
+        if (psiClass != null) {
+            return isJavaFitClass(psiFile, psiClass, classArray);
+        }
+        return false;
+    }
+
+
+    private static boolean isActivity(String name) {
+        return name != null && name.contains("Activity");
+    }
+
+    private static boolean isAdapter(String name) {
+        return name != null && name.contains("Adapter");
+    }
+
+    public static void showNotification(@NotNull Project project, MessageType type, String text) {
         StatusBar statusBar = WindowManager.getInstance().getStatusBar(project);
 
         JBPopupFactory.getInstance()

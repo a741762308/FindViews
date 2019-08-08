@@ -1,15 +1,16 @@
 <idea-plugin>
     <id>com.dongqing.plugin.findviews</id>
     <name>FindViews</name>
-    <version>2.0</version>
+    <version>3.0</version>
     <vendor email="dong123qing@gmail.com" url="https://github.com/a741762308/FindViews">a741762308</vendor>
 
     <description><![CDATA[
-      自动生成activity、fragment等findViewById代码.<br>
-      auto generator findViewById code in activity or fragment etc.
+      自动生成activity、fragment、adapter等findViewById代码，支持Kotlin和Java.<br>
+      auto generator findViewById code in activity ,fragment or adapter etc,and support Kotlin or Java
     ]]></description>
 
     <change-notes><![CDATA[
+      3.0 Support Kotlin(支持Kotlin).<br>
       2.0 Support BaseAdapter and RecyclerAdapter(支持各种适配器).<br>
       1.1 Support Field Naming Conventions(三种命名选择).<br>
       1.0 Support Activity and Fragment(支持activity与fragment).<br>
@@ -17,7 +18,7 @@
     </change-notes>
 
     <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html for description -->
-    <idea-version since-build="181"/>
+    <idea-version since-build="145.0"/>
 
     <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
          on how to target different products -->
@@ -28,6 +29,8 @@
     <extensions defaultExtensionNs="com.intellij">
         <!-- Add your extensions here -->
     </extensions>
+
+    <depends>org.jetbrains.kotlin</depends>
 
     <actions>
         <!-- Add your actions here -->
