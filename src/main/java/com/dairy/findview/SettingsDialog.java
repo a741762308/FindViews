@@ -4,12 +4,14 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
+import static com.dairy.findview.ModifierType.DEFAULT;
+
 public class SettingsDialog extends JDialog {
     private JPanel contentPane;
     private JButton buttonOK;
     private JButton buttonCancel;
     private JCheckBox mKotlinLazy;
-    private JComboBox mModifierCombox;
+    private JComboBox<String> mModifierCombox;
 
     public SettingsDialog() {
         setPreferredSize(new Dimension(300, 200));
@@ -20,8 +22,9 @@ public class SettingsDialog extends JDialog {
         mModifierCombox.addItem("default");
         mModifierCombox.addItem("protect");
         mModifierCombox.addItem("public");
-        mModifierCombox.setSelectedIndex(0);
 
+        mKotlinLazy.setSelected(Config.get().isKotlinLazy());
+        mModifierCombox.setSelectedItem(Config.get().getModifierType().toLowerCase());
 
         buttonOK.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -51,8 +54,31 @@ public class SettingsDialog extends JDialog {
         }, KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
     }
 
+
+    private void saveModifierType() {
+        ModifierType type;
+        switch (mModifierCombox.getSelectedIndex()) {
+            case 1:
+                type = DEFAULT;
+                break;
+            case 2:
+                type = ModifierType.PROTECT;
+                break;
+            case 3:
+                type = ModifierType.PUBLIC;
+                break;
+            case 0:
+            default:
+                type = ModifierType.PRIVATE;
+                break;
+        }
+        Config.get().saveModifierType(type);
+    }
+
     private void onOK() {
-        // add your code here
+        saveModifierType();
+        Config.get().saveKotlinLazy(mKotlinLazy.isSelected());
+        // add your code here if necessary
         dispose();
     }
 

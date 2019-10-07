@@ -83,7 +83,6 @@ public class ShowDialog extends JDialog {
                 dialog.setVisible(true);
             }
         });
-        mSettings.setVisible(false);
 
         mButtonOK.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {

@@ -75,7 +75,7 @@ public class JavaViewCreateFactory extends BaseViewCreateFactory {
         try {
             for (ResBean resBean : resBeans) {
                 if (psiClass.findFieldByName(resBean.getFieldName(), false) == null && resBean.isChecked()) {
-                    PsiField field = factory.createFieldFromText("private " + resBean.getName() + " " + resBean.getFieldName() + ";", psiClass);
+                    PsiField field = factory.createFieldFromText(resBean.getJavaFiled(), psiClass);
                     psiClass.add(field);
                 }
             }
@@ -226,15 +226,11 @@ public class JavaViewCreateFactory extends BaseViewCreateFactory {
             PsiMethod findViewsMethod = methods[0];
             StringBuilder block = new StringBuilder();
             PsiCodeBlock methodBody = findViewsMethod.getBody();
+            String view = mIsActivity ? "" : "view";
             for (ResBean resBean : resBeans) {
                 String findId = "findViewById(" + resBean.getFullId() + ");";
                 if (resBean.isChecked() && methodBody != null && !methodBody.getText().contains(findId)) {
-                    block.append(resBean.getFieldName()).append(" = ");
-                    if (!mIsActivity) {
-                        block.append("view.");
-                    }
-                    block.append(findId);
-//                methodBody.add(factory.createStatementFromText(block.toString(), findViewsMethod));
+                    block.append(resBean.getJavaStatement(view));
                 }
             }
             if (block.length() > 0) {

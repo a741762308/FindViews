@@ -93,4 +93,32 @@ public class ResBean {
         }
         return "R.id." + getId();
     }
+
+    public String getJavaFiled() {
+        return CodeConstant.getJavaFiled(getName(), getFieldName());
+    }
+
+    public String getJavaStatement(String view) {
+        return CodeConstant.getJavaStatement(getFieldName(), view, getFullId());
+    }
+
+    public String getKotlinProperty() {
+        return CodeConstant.getKotlinProperty(getName(), getFieldName());
+    }
+
+    public String getKotlinAdapterProperty() {
+        return CodeConstant.getKotlinAdapterProperty(getName(), getFieldName());
+    }
+
+    public String getKotlinAdapterProperty(String view) {
+        return CodeConstant.getKotlinAdapterProperty(getFieldName(), getName(), view, getFullId());
+    }
+
+    public String getKotlinLazyProperty(String view) {
+        return CodeConstant.getKotlinLazyProperty(getFieldName(), getName(), view, getFullId());
+    }
+
+    public String getKotlinExpression(String view) {
+        return CodeConstant.getKotlinExpression(getFieldName(), view, getFullId());
+    }
 }

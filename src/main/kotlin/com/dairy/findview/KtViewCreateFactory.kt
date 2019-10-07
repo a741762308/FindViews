@@ -5,15 +5,15 @@ import com.intellij.openapi.ui.MessageType
 import com.intellij.psi.PsiFile
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.kotlin.psi.*
-import org.jetbrains.kotlin.psi.psiUtil.findFunctionByName
 
 /**
  * Created by admin on 2019/7/26.
  */
-class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull files: PsiFile, @NotNull private val ktClass: KtClass) : BaseViewCreateFactory(resIdBeans, files) {
+class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull files: PsiFile, @NotNull private val ktClass: KtClass) :
+    BaseViewCreateFactory(resIdBeans, files) {
 
     private val ktFactory: KtPsiFactory = KtPsiFactory(files.project)
-    private val ktBody: KtClassBody = ktClass.body ?: throw RuntimeException("kotlin class body not found")
+    private val ktBody: KtClassBody = ktClass.getBody() ?: throw RuntimeException("kotlin class body not found")
     private val mIsActivity: Boolean = Utils.isKotlinActivity(psiFile, ktClass)
 
     private val mRunnable = Runnable {
@@ -39,7 +39,9 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
     }
 
     private fun isRecyclerViewAdapter(): Boolean {
-        return isRecyclerAdapter || ktClass.findFunctionByName("onCreateViewHolder") != null && ktClass.findFunctionByName("onBindViewHolder") != null
+        val declarations = ktClass.declarations
+        return isRecyclerAdapter || declarations.find { it.name.equals("onCreateViewHolder") } != null
+                && declarations.find { it.name.equals("onBindViewHolder") } != null
     }
 
     override fun generateAdapter() {
@@ -48,7 +50,12 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
             var holderClass: KtClass? = null
             if (recycler) {
                 for (inner in ktClass.declarations.filter { it is KtClass }) {
-                    if (Utils.isKotlinFitClass(psiFile, inner as KtClass, "android.support.v7.widget.RecyclerView.ViewHolder")) {
+                    if (Utils.isKotlinFitClass(
+                            psiFile,
+                            inner as KtClass,
+                            "android.support.v7.widget.RecyclerView.ViewHolder"
+                        )
+                    ) {
                         holderClass = inner
                         break
                     }
@@ -64,14 +71,11 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
             val holderField = StringBuilder()
             for (resBean in resBeans) {
                 if (resBean.isChecked) {
-                    holderField.append("val ")
-                            .append(resBean.fieldName)
-                            .append(": ")
-                            .append(resBean.name)
+                    holderField.append(resBean.kotlinAdapterProperty)
                     if (holderClass == null) {
                         val findId = "view.findViewById(" + resBean.fullId + ")\n"
                         holderField.append(" = ")
-                                .append(findId)
+                            .append(findId)
                     }
 
 
@@ -88,12 +92,14 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
                 ktBody.addBefore(holderClass, ktBody.rBrace)
             } else {
                 val holderMethod = StringBuilder()
-                var findMethods = holderClass.allConstructors.filter { it.getValueParameterList()?.parameters?.isEmpty() == false }
+                var findMethods =
+                    Utils.allConstructors(holderClass)
+                        .filter { it.getValueParameterList()?.parameters?.isEmpty() == false }
                 if (recycler) {
                     findMethods = findMethods.filter { it is KtPrimaryConstructor || it.getText().contains("super(") }
                 }
                 val findMethod = findMethods.firstOrNull()
-                val methodBody: KtBlockExpression? = findMethod?.getBodyBlockExpression()
+                val methodBody: KtBlockExpression? = findMethod?.getBodyExpression()
                 var params: String? = null
                 if (findMethod == null) {
                     if (recycler) {
@@ -110,7 +116,7 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
                 }
                 val methodSize = holderMethod.length
 
-                val body = holderClass.body!!
+                val body = holderClass.getBody()!!
                 //最后一个成员变量
                 val p = holderClass.getProperties().lastOrNull()
                 //所有成员变量
@@ -118,35 +124,36 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
                 //左括号
                 val e = p ?: body.lBrace
                 resBeans
-                        .filter { it.isChecked && !oldFiled.contains(it.fieldName) }
-                        .map {
-                            if (methodSize > 0) {
-                                ktFactory.createProperty("val ${it.fieldName}: ${it.name}")
-                            } else {//有构造方法
-                                ktFactory.createProperty("val ${it.fieldName}: ${it.name} = ${params ?: "view"}.findViewById(${it.fullId})")
-                            }
+                    .filter { it.isChecked && !oldFiled.contains(it.fieldName) }
+                    .map {
+                        if (methodSize > 0) {
+                            ktFactory.createProperty("val ${it.fieldName}: ${it.name}")
+                        } else {//有构造方法
+                            ktFactory.createProperty(it.getKotlinAdapterProperty(params ?: "view")
+                            )
                         }
-                        .forEach { body.addBefore(ktFactory.createNewLine(), body.addAfter(it, e)) }
+                    }
+                    .forEach { body.addBefore(ktFactory.createNewLine(), body.addAfter(it, e)) }
 
                 if (methodSize <= 0) {
                     return
                 }
                 for (resBean in resBeans) {
                     if (resBean.isChecked) {
-                        val findId = "findViewById(" + resBean.fullId + ")\n"
+                        val findId = "findViewById(" + resBean.fullId + ")"
                         if (methodBody == null || !methodBody.text.contains(findId)) {
-                            holderMethod.append("this.")
-                                    .append(resBean.fieldName)
-                                    .append(" = ")
-                                    .append("itemView.")
-                                    .append(findId)
+                            holderMethod.append(resBean.getKotlinExpression("itemView"))
+                            holderMethod.append("\n")
                         }
                     }
                 }
                 methodBody?.delete()
                 holderMethod.append("}")
                 if (findMethod == null) {
-                    holderClass.addBefore(ktFactory.createSecondaryConstructor(holderMethod.toString()), holderClass.body?.rBrace)
+                    holderClass.addBefore(
+                        ktFactory.createSecondaryConstructor(holderMethod.toString()),
+                        holderClass.getBody()?.rBrace
+                    )
                 } else {
                     findMethod.add(ktFactory.createExpression(holderMethod.toString()))
                 }
@@ -167,7 +174,11 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
             val e = p ?: ktBody.lBrace
             for (resBean in resBeans) {
                 if (resBean.isChecked && !oldFiled.contains(resBean.fieldName)) {
-                    val field = ktFactory.createProperty("private lateinit var " + resBean.fieldName + ": " + resBean.name)
+                    val field = if (Config.get().isKotlinLazy && mIsActivity) {
+                        ktFactory.createProperty(resBean.getKotlinLazyProperty(""))
+                    } else {
+                        ktFactory.createProperty(resBean.kotlinProperty)
+                    }
                     ktBody.addBefore(ktFactory.createNewLine(), ktBody.addAfter(field, e))
                 }
             }
@@ -181,24 +192,31 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
         try {
             val createFunction = StringBuilder()
             if (mIsActivity) {
+                if (Config.get().isKotlinLazy) {
+                    return
+                }
                 createFunction.append("private fun initViews() {}")
             } else {
                 createFunction.append("private fun initViews(view: View) {}")
             }
-            val functions = ktClass.findFunctionByName("initViews")
+            val functions = Utils.findFunctionByName(ktClass, "initViews")
             if (functions == null) {
                 val p = ktClass.getProperties().lastOrNull()
                 val e = p ?: ktBody.rBrace
                 if (p != null) {
-                    ktBody.addBefore(ktFactory.createNewLine(),
-                            ktClass.addAfter(ktFactory.createFunction(createFunction.toString()), e))
+                    ktBody.addBefore(
+                        ktFactory.createNewLine(),
+                        ktClass.addAfter(ktFactory.createFunction(createFunction.toString()), e)
+                    )
                 } else {
-                    ktBody.addAfter(ktFactory.createNewLine(),
-                            ktClass.addBefore(ktFactory.createFunction(createFunction.toString()), e))
+                    ktBody.addAfter(
+                        ktFactory.createNewLine(),
+                        ktClass.addBefore(ktFactory.createFunction(createFunction.toString()), e)
+                    )
                 }
             }
-            val findViewsFunction = ktClass.findFunctionByName("initViews") as KtFunction
-            val functionBody = findViewsFunction.bodyBlockExpression!!
+            val findViewsFunction = Utils.findFunctionByName(ktClass, "initViews")
+            val functionBody = findViewsFunction.bodyExpression as KtBlockExpression
             for (resBean in resBeans) {
                 val findId = "findViewById(" + resBean.fullId + ")"
                 if (resBean.isChecked && !functionBody.text.contains(findId)) {
@@ -209,8 +227,10 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
                         block.append("view.")
                     }
                     block.append(findId)
-                    functionBody.addAfter(ktFactory.createNewLine(),
-                            functionBody.addBefore(ktFactory.createExpression(block.toString()), e))
+                    functionBody.addAfter(
+                        ktFactory.createNewLine(),
+                        functionBody.addBefore(ktFactory.createExpression(block.toString()), e)
+                    )
                 }
             }
         } catch (t: Throwable) {
@@ -223,10 +243,13 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
             val function: KtNamedDeclaration?
             val body: KtBlockExpression?
             if (mIsActivity) {
-                function = ktClass.findFunctionByName("onCreate")
+                if (Config.get().isKotlinLazy) {
+                    return
+                }
+                function = Utils.findFunctionByName(ktClass, "onCreate")
                 if (function != null) {
                     var setContentView: KtExpression? = null
-                    body = (function as KtFunction).bodyBlockExpression;
+                    body = function.bodyExpression as? KtBlockExpression
                     if (body != null) {
                         for (statement in body.statements) {
                             if (statement.text.contains("setContentView")) {
@@ -242,10 +265,10 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
                     }
                 }
             } else {
-                function = ktClass.findFunctionByName("onCreateView")
+                function = Utils.findFunctionByName(ktClass, "onCreateView")
                 if (function != null) {
                     val returnView: KtExpression
-                    body = (function as KtFunction).bodyBlockExpression;
+                    body = function.bodyExpression as? KtBlockExpression
                     if (body != null) {
                         val statements = body.statements
                         for (statement in statements) {
@@ -253,25 +276,29 @@ class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull fi
                                 return
                             }
                         }
-                        returnView = statements.last();
+                        returnView = statements.last()
                         val index = returnView.text.indexOf("inflater.inflate(")
                         if (index != -1) {
                             //创建临时变量失败，暂时没有更好的方法，先使用全局变量
                             val p = ktClass.getProperties().last()
                             if (!p.text.contains("mRootView")) {
-                                val filed = ktFactory.createProperty("private lateinit var mRootView: View");
+                                val filed = ktFactory.createProperty("private lateinit var mRootView: View")
                                 ktBody.addBefore(ktFactory.createNewLine(), ktBody.addAfter(filed, p))
                             }
-
                             val text = returnView.text
                             var e = returnView.replace(ktFactory.createExpression("return mRootView"))
-                            e = body.addBefore(ktFactory.createNewLine(), e);
+                            e = body.addBefore(ktFactory.createNewLine(), e)
                             e = body.addBefore(ktFactory.createExpression("initViews(mRootView)"), e)
-                            body.addBefore(ktFactory.createNewLine(), e);
-                            body.addAfter(ktFactory.createExpression(text.replace("return", "mRootView =")), body.lBrace)
+                            body.addBefore(ktFactory.createNewLine(), e)
+                            body.addAfter(
+                                ktFactory.createExpression(text.replace("return", "mRootView =")),
+                                body.lBrace
+                            )
                         } else {
-                            body.addAfter(ktFactory.createNewLine(),
-                                    body.addBefore(ktFactory.createExpression("initViews(view)"), returnView))
+                            body.addAfter(
+                                ktFactory.createNewLine(),
+                                body.addBefore(ktFactory.createExpression("initViews(view)"), returnView)
+                            )
                         }
                     }
                 }

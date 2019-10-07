@@ -1,6 +1,6 @@
 # FindViews
 [jetbrains](https://plugins.jetbrains.com/plugin/12609-findviews)
-[ ![release](https://img.shields.io/badge/Release-V3.0-blue.svg)](https://github.com/a741762308/FindViews/releases)
+[ ![release](https://img.shields.io/badge/Release-V3.1-blue.svg)](https://github.com/a741762308/FindViews/releases)
 [![License MIT](http://img.shields.io/badge/license-MIT-orange.svg)](https://raw.githubusercontent.com/a741762308/FindViews/master/LICENSE)
 
 This is a plugin to auto generator findViewById code in activity ,fragment and adapter,
@@ -23,6 +23,8 @@ support java and kotlin.
   ![recyclerAdapter](/screenshot/kotlin_recycler.gif)
   
  ## Version Info
+ v3.1 Add Settings.
+ 
  v3.0 Support Kotlin.
  
  v2.0 Support BaseAdapter and RecyclerAdapter.

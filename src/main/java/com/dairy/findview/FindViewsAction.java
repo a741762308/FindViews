@@ -2,14 +2,12 @@ package com.dairy.findview;
 
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.DataKeys;
+import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.MessageType;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
+import com.intellij.psi.*;
+import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.kotlin.idea.internal.Location;
 import org.jetbrains.kotlin.psi.KtClass;
@@ -23,8 +21,8 @@ public class FindViewsAction extends AnAction {
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
         try {
-            PsiFile psiFile = e.getData(DataKeys.PSI_FILE);
-            Editor editor = e.getData(DataKeys.EDITOR);
+            PsiFile psiFile = e.getData(CommonDataKeys.PSI_FILE);
+            Editor editor = e.getData(CommonDataKeys.EDITOR);
             List<ResBean> resBeans = Utils.getResBeanFromFile(psiFile, editor);
 
             ShowDialog dialog = new ShowDialog(resBeans);
@@ -34,7 +32,7 @@ public class FindViewsAction extends AnAction {
                     KtClass ktClass = getPsiClassFromEvent(editor);
                     factory = new KtViewCreateFactory(resBeans, psiFile, ktClass);
                 } else {
-                    PsiClass psiClass = Utils.getJavaClass(psiFile);
+                    PsiClass psiClass = getTargetClass(editor, psiFile);
                     factory = new JavaViewCreateFactory(resBeans, psiFile, psiClass);
                 }
                 if (resBeans.isEmpty()) {
@@ -68,5 +66,16 @@ public class FindViewsAction extends AnAction {
         if (psiElement == null) return null;
 
         return Utils.getKotlinClass(psiElement);
+    }
+
+    protected PsiClass getTargetClass(Editor editor, PsiFile file) {
+        int offset = editor.getCaretModel().getOffset();
+        PsiElement element = file.findElementAt(offset);
+        if (element == null) {
+            return null;
+        } else {
+            PsiClass target = PsiTreeUtil.getParentOfType(element, PsiClass.class);
+            return target instanceof SyntheticElement ? null : target;
+        }
     }
 }

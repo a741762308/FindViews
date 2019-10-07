@@ -1,5 +1,6 @@
 package com.dairy.findview;
 
+import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.editor.CaretModel;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.module.Module;
@@ -13,14 +14,13 @@ import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.search.PsiShortNamesCache;
 import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.ui.awt.RelativePoint;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.kotlin.asJava.KotlinAsJavaSupport;
 import org.jetbrains.kotlin.asJava.elements.KtLightElement;
-import org.jetbrains.kotlin.psi.KtClass;
+import org.jetbrains.kotlin.psi.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -157,13 +157,6 @@ public class Utils {
         return null;
     }
 
-    public static PsiClass getJavaClass(@NotNull PsiFile classFile) {
-        GlobalSearchScope globalSearchScope = GlobalSearchScope.fileScope(classFile);
-        String fullName = classFile.getName();
-        String className = fullName.split("\\.")[0];
-        return PsiShortNamesCache.getInstance(classFile.getProject()).getClassesByName(className, globalSearchScope)[0];
-    }
-
     public static KtClass getKotlinClass(@NotNull PsiElement psiElement) {
         if (psiElement instanceof KtLightElement) {
             PsiElement origin = ((KtLightElement) psiElement).getKotlinOrigin();
@@ -218,13 +211,33 @@ public class Utils {
     }
 
     public static boolean isKotlinFitClass(@NotNull PsiFile psiFile, @NotNull KtClass ktClass, String... classArray) {
-        PsiClass psiClass = KotlinAsJavaSupport.getInstance(psiFile.getProject()).getLightClass(ktClass);
+        KotlinAsJavaSupport support = ServiceManager.getService(psiFile.getProject(), KotlinAsJavaSupport.class);
+        PsiClass psiClass = support.getLightClass(ktClass);
         if (psiClass != null) {
             return isJavaFitClass(psiFile, psiClass, classArray);
         }
         return false;
     }
 
+    public static List<KtConstructor> allConstructors(KtClass ktClass) {
+        List<KtConstructor> constructors = new ArrayList<>();
+        KtPrimaryConstructor primaryConstructor = ktClass.getPrimaryConstructor();
+        List<KtSecondaryConstructor> secondaryConstructors = ktClass.getSecondaryConstructors();
+        if (primaryConstructor != null) {
+            constructors.add(primaryConstructor);
+        }
+        constructors.addAll(secondaryConstructors);
+        return constructors;
+    }
+
+    public static KtFunction findFunctionByName(@NotNull KtClass ktClass, @NotNull String name) {
+        List<KtDeclaration> declarations = ktClass.getDeclarations();
+        for (KtDeclaration declaration : declarations) {
+            if (declaration instanceof KtFunction && declaration.getName() != null && declaration.getName().equals(name))
+                return (KtFunction) declaration;
+        }
+        return null;
+    }
 
     private static boolean isActivity(String name) {
         return name != null && name.contains("Activity");
