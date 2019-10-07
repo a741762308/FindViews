@@ -7,6 +7,5 @@
 /.idea
 /.gradle
 /captures
-
-/*.zip
-/*.jar
+/*.iml
+/build
