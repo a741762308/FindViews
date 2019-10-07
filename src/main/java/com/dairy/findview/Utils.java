@@ -51,6 +51,11 @@ public class Utils {
         return resBeans;
     }
 
+    public static List<ResBean> getResBeanFromFile(PsiFile psiFile) {
+        final List<ResBean> resBeans = new ArrayList<>();
+        return getResBeanFromFile(psiFile, resBeans);
+    }
+
     private static List<ResBean> getResBeanFromFile(@NotNull PsiFile file, List<ResBean> resBeans) {
         file.accept(new XmlRecursiveElementVisitor() {
             @Override
@@ -143,6 +148,10 @@ public class Utils {
     public static PsiFile getFileByName(@NotNull PsiFile psiFile, String fileName) {
         String name = String.format("%s.xml", fileName);
         return getFileByName(psiFile, psiFile.getProject(), name);
+    }
+
+    public static String getXmlPath(@NotNull PsiFile psiFile) {
+        return "R.layout." + psiFile.getName().replace(".xml", "");
     }
 
     public static PsiFile getFileByName(@NotNull PsiElement psiElement, @NotNull Project project, String name) {

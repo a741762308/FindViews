@@ -1,7 +1,8 @@
 package com.dairy.findview;
 
 import javax.swing.*;
-import javax.swing.table.*;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableColumn;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.Arrays;
@@ -14,7 +15,7 @@ public class ShowDialog extends JDialog {
     private JButton mButtonCancel;
     private JScrollPane mScrollPane;
     private JTable mTable;
-    private JComboBox mTypeComboBox;
+    private JComboBox<String> mTypeComboBox;
     private JCheckBox mViewHolderCheckBox;
     private JCheckBox mKotlinCheckBox;
     private JButton mSettings;
@@ -49,7 +50,7 @@ public class ShowDialog extends JDialog {
         cellRenderer.setVerticalAlignment(JLabel.CENTER);
         mTable.setDefaultRenderer(Object.class, cellRenderer);
 
-        CheckBoxHeaderRenderer headerRenderer = new CheckBoxHeaderRenderer();
+        CheckBoxHeaderRenderer headerRenderer = new CheckBoxHeaderRenderer(mTable, mTableModel);
         mTable.getTableHeader().setReorderingAllowed(false);
         mTable.getTableHeader().setDefaultRenderer(headerRenderer);
 
@@ -130,139 +131,6 @@ public class ShowDialog extends JDialog {
         mClickListener = clickListener;
     }
 
-    public interface OnClickListener {
-        void onOk(boolean kotlin);
-
-        default void onCancel() {
-
-        }
-    }
-
-    private class TableModelProxy extends AbstractTableModel {
-        private String[] columnData;
-        private List<ResBean> datas;
-
-        public TableModelProxy(String[] columnData, List<ResBean> datas) {
-            this.columnData = columnData;
-            this.datas = datas;
-        }
-
-        @Override
-        public int getRowCount() {
-            return datas.size();
-        }
-
-        @Override
-        public int getColumnCount() {
-            return columnData.length;
-        }
-
-        @Override
-        public String getColumnName(int columnIndex) {
-            return columnData[columnIndex];
-        }
-
-        @Override
-        public Class<?> getColumnClass(int columnIndex) {
-            if (columnIndex == 0) {
-                return Boolean.class;
-            }
-            return String.class;
-        }
-
-        @Override
-        public boolean isCellEditable(int rowIndex, int columnIndex) {
-            return getColumnClass(columnIndex) == Boolean.class;
-        }
-
-        @Override
-        public Object getValueAt(int rowIndex, int columnIndex) {
-            ResBean bean = datas.get(rowIndex);
-            switch (columnIndex) {
-                case 0:
-                    return bean.isChecked();
-                case 1:
-                    return bean.getName();
-                case 2:
-                    return bean.getId();
-                case 3:
-                    return bean.getFieldName();
-            }
-            return null;
-        }
-
-        @Override
-        public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
-            ResBean bean = datas.get(rowIndex);
-            if (columnIndex == 0 && aValue instanceof Boolean) {
-                bean.setChecked((Boolean) aValue);
-            }
-        }
-    }
-
-    class CheckBoxHeaderRenderer implements TableCellRenderer {
-        private JTableHeader mTableHeader;
-        private JCheckBox mCheckBox;
-
-        public CheckBoxHeaderRenderer() {
-            mTableHeader = mTable.getTableHeader();
-            mCheckBox = new JCheckBox();
-            mCheckBox.setSelected(true);
-            mTableHeader.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    int selectColumn = mTableHeader.columnAtPoint(e.getPoint());
-                    if (selectColumn == 0) {
-                        mCheckBox.setSelected(!mCheckBox.isSelected());
-                        mTableHeader.repaint();
-
-                        if (mCheckBox.isSelected()) {
-                            selectAll();
-                        } else {
-                            selectNone();
-                        }
-                    }
-                }
-            });
-        }
-
-        private void selectAll() {
-            for (int i = 0; i < mTableModel.getRowCount(); i++) {
-                mTableModel.setValueAt(true, i, 0);
-            }
-            mTableModel.fireTableDataChanged();
-        }
-
-        private void selectNone() {
-            for (int i = 0; i < mTableModel.getRowCount(); i++) {
-                mTableModel.setValueAt(false, i, 0);
-            }
-            mTableModel.fireTableDataChanged();
-        }
-
-        @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            String v;
-            if (value instanceof String) {
-                v = (String) value;
-            } else {
-                v = "";
-            }
-
-            JLabel label = new JLabel(v);
-            label.setHorizontalAlignment(SwingConstants.CENTER);
-            label.setVerticalAlignment(SwingConstants.CENTER);
-            mCheckBox.setHorizontalAlignment(SwingConstants.CENTER);
-            mCheckBox.setVerticalAlignment(SwingConstants.CENTER);
-            mCheckBox.setBorderPainted(true);
-            JComponent component = column == 0 ? mCheckBox : label;
-            component.setForeground(mTableHeader.getForeground());
-            component.setBackground(mTableHeader.getBackground());
-            component.setFont(mTableHeader.getFont());
-            component.setBorder(UIManager.getBorder("TableHeader.cellBorder"));
-            return component;
-        }
-    }
 
     public static void main(String[] args) {
         List<ResBean> resBeans = Arrays.asList(new ResBean("TextView", "@+id/aaa_bbb"));

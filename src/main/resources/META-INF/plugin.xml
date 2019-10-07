@@ -27,6 +27,11 @@
             <add-to-group group-id="GenerateGroup" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl U"/>
         </action>
+        <action id="generateviews" class="com.dairy.findview.GenerateViewsAction" text="FindViewById"
+                description="generate code for find view by id ">
+            <add-to-group group-id="XmlGenerateToolsGroup" anchor="before" relative-to-action="GenerateDTD"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="meta U" second-keystroke="ctrl U"/>
+        </action>
     </actions>
 
 </idea-plugin>

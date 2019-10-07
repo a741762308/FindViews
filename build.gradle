@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'com.dongqing.plugin'
-version '3.1'
+version '3.2'
 
 sourceCompatibility = 1.8
 
@@ -42,6 +42,7 @@ patchPluginXml {
       auto generator findViewById code in activity ,fragment or adapter etc,and support Kotlin or Java.<br>
      """
     changeNotes = """
+      3.2 Add xml genarater adapter(支持xml生成Adapter).<br>
       3.1 Add Settings(添加设置).<br>
       3.0 Support Kotlin(支持Kotlin).<br>
       2.0 Support BaseAdapter and RecyclerAdapter(支持各种适配器).<br>
