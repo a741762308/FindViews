@@ -9,7 +9,7 @@ support java and kotlin.
 ## Install   
 - <kbd>Preferences/File</kbd> -> <kbd>Settings</kbd> -> <kbd>Plugins</kbd> -> <kbd>Marketplace</kbd> -> <kbd>Search for "FindViews"</kbd> -> <kbd>Install Plugin</kbd>
 - Manually:
-  - Download the [latest release](https://github.com/a741762308/FindViews/releases) and install it manually using <kbd>Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Install plugin from disk...</kbd>
+  - Download the [latest release](https://github.com/a741762308/FindViews/tree/master/libs) and install it manually using <kbd>Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Install plugin from disk...</kbd>
   - From official jetbrains store from [download](https://plugins.jetbrains.com/plugin/12609-findviews)
  
  ## Usage
