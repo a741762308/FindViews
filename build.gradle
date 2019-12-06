@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'com.dongqing.plugin'
-version '3.2'
+version '4.0'
 
 sourceCompatibility = 1.8
 
@@ -38,11 +38,13 @@ compileTestKotlin {
 
 patchPluginXml {
     pluginDescription = """
+      auto generate findViewById code in activity ,fragment or adapter etc,and support Kotlin or Java.<br>
       自动生成activity、fragment、adapter等findViewById代码，支持Kotlin和Java.<br>
-      auto generator findViewById code in activity ,fragment or adapter etc,and support Kotlin or Java.<br>
+
      """
     changeNotes = """
-      3.2 Add xml genarater adapter(支持xml生成Adapter).<br>
+      4.0 Support ButterKnife(支持黄油刀).<br>
+      3.2 Add xml generate adapter(支持xml生成Adapter).<br>
       3.1 Add Settings(添加设置).<br>
       3.0 Support Kotlin(支持Kotlin).<br>
       2.0 Support BaseAdapter and RecyclerAdapter(支持各种适配器).<br>

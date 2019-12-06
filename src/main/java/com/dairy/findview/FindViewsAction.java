@@ -28,12 +28,23 @@ public class FindViewsAction extends AnAction {
             ShowDialog dialog = new ShowDialog(resBeans);
             dialog.setClickListener((boolean kotlin) -> {
                 BaseViewCreateFactory factory;
-                if (kotlin) {
-                    KtClass ktClass = getPsiClassFromEvent(editor);
-                    factory = new KtViewCreateFactory(resBeans, psiFile, ktClass);
+
+                if (Config.get().isButterKnife()) {
+                    if (kotlin) {
+                        KtClass ktClass = getPsiClassFromEvent(editor);
+                        factory = new KtButterKnifeCreateFactory(resBeans, psiFile, ktClass);
+                    } else {
+                        PsiClass psiClass = getTargetClass(editor, psiFile);
+                        factory = new JavaButterKnifeCreateFactory(resBeans, psiFile, psiClass);
+                    }
                 } else {
-                    PsiClass psiClass = getTargetClass(editor, psiFile);
-                    factory = new JavaViewCreateFactory(resBeans, psiFile, psiClass);
+                    if (kotlin) {
+                        KtClass ktClass = getPsiClassFromEvent(editor);
+                        factory = new KtViewCreateFactory(resBeans, psiFile, ktClass);
+                    } else {
+                        PsiClass psiClass = getTargetClass(editor, psiFile);
+                        factory = new JavaViewCreateFactory(resBeans, psiFile, psiClass);
+                    }
                 }
                 if (resBeans.isEmpty()) {
                     Utils.showNotification(psiFile.getProject(), MessageType.WARNING, "No layout found or No IDs found in layout");
@@ -68,7 +79,7 @@ public class FindViewsAction extends AnAction {
         return Utils.getKotlinClass(psiElement);
     }
 
-    protected PsiClass getTargetClass(Editor editor, PsiFile file) {
+    private PsiClass getTargetClass(Editor editor, PsiFile file) {
         int offset = editor.getCaretModel().getOffset();
         PsiElement element = file.findElementAt(offset);
         if (element == null) {

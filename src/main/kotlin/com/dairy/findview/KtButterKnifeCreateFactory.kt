@@ -1,47 +1,14 @@
 package com.dairy.findview
 
-import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.ui.MessageType
 import com.intellij.psi.PsiFile
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.findPropertyByName
 
-/**
- * Created by admin on 2019/7/26.
- */
-open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull files: PsiFile, @NotNull private val ktClass: KtClass) :
-    BaseKtViewCreateFactory(resIdBeans, files, ktClass) {
+class KtButterKnifeCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull files: PsiFile, @NotNull private val ktClass: KtClass) :
+    KtViewCreateFactory(resIdBeans, files, ktClass) {
 
-    private val mRunnable = Runnable {
-        try {
-            if (Utils.isKotlinAdapter(psiFile, ktClass) || isAdapterType) {
-                //适配器
-                generateAdapter()
-            } else {
-                //生成成员变量
-                generateFields()
-                //生成方法
-                generateFindViewById()
-                //调用方法
-                performFunction()
-            }
-        } catch (t: Throwable) {
-            Utils.showNotification(ktClass.project, MessageType.ERROR, t.message)
-        }
-    }
-
-    override fun execute() {
-        WriteCommandAction.runWriteCommandAction(ktClass.project, mRunnable)
-    }
-
-    protected fun isRecyclerViewAdapter(): Boolean {
-        val declarations = ktClass.declarations
-        return isRecyclerAdapter || Utils.isKotlinRecyclerAdapter(
-            psiFile,
-            ktClass
-        ) || declarations.find { it.name.equals("onCreateViewHolder") } != null
-                && declarations.find { it.name.equals("onBindViewHolder") } != null
-    }
 
     override fun generateAdapter() {
         try {
@@ -69,17 +36,13 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
             val holderField = StringBuilder()
             for (resBean in resBeans) {
                 if (resBean.isChecked) {
-                    holderField.append(resBean.kotlinAdapterProperty)
-                    if (holderClass == null) {
-                        val findId = "view.findViewById(" + resBean.fullId + ")\n"
-                        holderField.append(" = ")
-                            .append(findId)
-                    }
-
+                    holderField.append(resBean.adapterKotlinButterKnifeProperty)
+                    holderField.append("\n")
 
                 }
             }
             if (holderClass == null) {
+                holderField.append("\ninit {\nButterKnife.bind(this,view)\n}\n")
                 val holdClass: String
                 if (recycler) {
                     holdClass = "inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {$holderField}"
@@ -101,9 +64,9 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
                 var params: String? = null
                 if (findMethod == null) {
                     if (recycler) {
-                        holderMethod.append("constructor(itemView: View) : super(itemView) {")
+                        holderMethod.append("constructor(itemView: View) : super(itemView) {\nButterKnife.bind(this,view)\n")
                     } else {
-                        holderMethod.append("constructor(itemView: View){")
+                        holderMethod.append("constructor(itemView: View){\nButterKnife.bind(this,view)\n")
                     }
                 } else {
                     params = findMethod.getValueParameterList()?.parameters?.get(0)?.name
@@ -124,28 +87,18 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
                 resBeans
                     .filter { it.isChecked && !oldFiled.contains(it.fieldName) }
                     .map {
-                        if (methodSize > 0) {
-                            ktFactory.createProperty("val ${it.fieldName}: ${it.name}")
-                        } else {//有构造方法
-                            ktFactory.createProperty(
-                                it.getKotlinAdapterProperty(params ?: "view")
-                            )
-                        }
+                        ktFactory.createProperty("lateinit var ${it.fieldName}: ${it.name}")
                     }
                     .forEach { body.addBefore(ktFactory.createNewLine(), body.addAfter(it, e)) }
 
                 if (methodSize <= 0) {
+                    holderClass.addBefore(
+                        ktFactory.createExpression("init {\nButterKnife.bind(this,view)\n}\n"),
+                        body.rBrace
+                    )
                     return
                 }
-                for (resBean in resBeans) {
-                    if (resBean.isChecked) {
-                        val findId = "findViewById(" + resBean.fullId + ")"
-                        if (methodBody == null || !methodBody.text.contains(findId)) {
-                            holderMethod.append(resBean.getKotlinExpression("itemView"))
-                            holderMethod.append("\n")
-                        }
-                    }
-                }
+                holderMethod.append("ButterKnife.bind(this,${params ?: "view"})")
                 methodBody?.delete()
                 holderMethod.append("}")
                 if (findMethod == null) {
@@ -173,68 +126,18 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
             val e = p ?: ktBody.lBrace
             for (resBean in resBeans) {
                 if (resBean.isChecked && !oldFiled.contains(resBean.fieldName)) {
-                    val field = if (Config.get().isKotlinLazy && mIsActivity) {
-                        ktFactory.createProperty(resBean.getKotlinLazyProperty(""))
-                    } else {
-                        ktFactory.createProperty(resBean.kotlinProperty)
-                    }
+                    val field = ktFactory.createProperty(resBean.kotlinButterKnifeProperty)
                     ktBody.addBefore(ktFactory.createNewLine(), ktBody.addAfter(field, e))
                 }
             }
         } catch (t: Throwable) {
             Utils.showNotification(ktClass.project, MessageType.ERROR, t.message)
         }
-
     }
 
+
     override fun generateFindViewById() {
-        try {
-            val createFunction = StringBuilder()
-            if (mIsActivity) {
-                if (Config.get().isKotlinLazy) {
-                    return
-                }
-                createFunction.append("private fun initViews() {}")
-            } else {
-                createFunction.append("private fun initViews(view: View) {}")
-            }
-            val functions = Utils.findFunctionByName(ktClass, "initViews")
-            if (functions == null) {
-                val p = ktClass.getProperties().lastOrNull()
-                val e = p ?: ktBody.rBrace
-                if (p != null) {
-                    ktBody.addBefore(
-                        ktFactory.createNewLine(),
-                        ktClass.addAfter(ktFactory.createFunction(createFunction.toString()), e)
-                    )
-                } else {
-                    ktBody.addAfter(
-                        ktFactory.createNewLine(),
-                        ktClass.addBefore(ktFactory.createFunction(createFunction.toString()), e)
-                    )
-                }
-            }
-            val findViewsFunction = Utils.findFunctionByName(ktClass, "initViews")
-            val functionBody = findViewsFunction.bodyExpression as KtBlockExpression
-            for (resBean in resBeans) {
-                val findId = "findViewById(" + resBean.fullId + ")"
-                if (resBean.isChecked && !functionBody.text.contains(findId)) {
-                    val block = StringBuilder()
-                    val e = functionBody.rBrace;
-                    block.append(resBean.fieldName).append(" = ")
-                    if (!mIsActivity) {
-                        block.append("view.")
-                    }
-                    block.append(findId)
-                    functionBody.addAfter(
-                        ktFactory.createNewLine(),
-                        functionBody.addBefore(ktFactory.createExpression(block.toString()), e)
-                    )
-                }
-            }
-        } catch (t: Throwable) {
-            Utils.showNotification(ktClass.project, MessageType.ERROR, t.message)
-        }
+
     }
 
     override fun performFunction() {
@@ -253,13 +156,34 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
                         for (statement in body.statements) {
                             if (statement.text.contains("setContentView")) {
                                 setContentView = statement
-                            } else if (statement.text.contains("initViews")) {
+                            } else if (statement.text.contains("ButterKnife.bind(this)")) {
                                 return
                             }
                         }
+
                         if (setContentView != null) {
-                            val e = body.addAfter(ktFactory.createExpression("initViews()"), setContentView)
+
+                            if (Config.get().isButterKnifeUnBind && ktClass.findPropertyByName("mUnBinder") == null) {
+                                val e = ktClass.getProperties().lastOrNull() ?: ktBody.lBrace
+                                ktBody.addBefore(
+                                    ktFactory.createNewLine(),
+                                    ktBody.addAfter(
+                                        ktFactory.createProperty("private lateinit var mUnBinder: Unbinder"),
+                                        e
+                                    )
+                                )
+                            }
+                            val bind = if (Config.get().isButterKnifeUnBind) {
+                                "mUnBinder = ButterKnife.bind(this)"
+                            } else {
+                                "ButterKnife.bind(this)"
+                            }
+                            val e = body.addAfter(ktFactory.createExpression(bind), setContentView)
                             body.addBefore(ktFactory.createNewLine(), e)
+
+                            if (Config.get().isButterKnifeUnBind) {
+                                addUnbindStatement()
+                            }
                         }
                     }
                 }
@@ -271,7 +195,7 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
                     if (body != null) {
                         val statements = body.statements
                         for (statement in statements) {
-                            if (statement.text.contains("initViews")) {
+                            if (statement.text.contains("ButterKnife.bind")) {
                                 return
                             }
                         }
@@ -287,7 +211,24 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
                             val text = returnView.text
                             var e = returnView.replace(ktFactory.createExpression("return mRootView"))
                             e = body.addBefore(ktFactory.createNewLine(), e)
-                            e = body.addBefore(ktFactory.createExpression("initViews(mRootView)"), e)
+
+                            if (Config.get().isButterKnifeUnBind && ktClass.findPropertyByName("mUnBinder") == null) {
+                                val p = ktClass.getProperties().lastOrNull() ?: ktBody.lBrace
+                                ktBody.addBefore(
+                                    ktFactory.createNewLine(),
+                                    ktBody.addAfter(
+                                        ktFactory.createProperty("private lateinit var mUnBinder: Unbinder"),
+                                        p
+                                    )
+                                )
+                            }
+                            val bind = if (Config.get().isButterKnifeUnBind) {
+                                "mUnBinder = ButterKnife.bind(this, mRootView)"
+                            } else {
+                                "ButterKnife.bind(this, mRootView)"
+                            }
+
+                            e = body.addBefore(ktFactory.createExpression(bind), e)
                             body.addBefore(ktFactory.createNewLine(), e)
                             body.addAfter(
                                 ktFactory.createExpression(text.replace("return", "mRootView =")),
@@ -296,14 +237,49 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
                         } else {
                             body.addAfter(
                                 ktFactory.createNewLine(),
-                                body.addBefore(ktFactory.createExpression("initViews(view)"), returnView)
+                                body.addBefore(ktFactory.createExpression("ButterKnife.bind(this, view)"), returnView)
                             )
+                        }
+                        if (Config.get().isButterKnifeUnBind) {
+                            addUnbindStatement()
                         }
                     }
                 }
             }
         } catch (t: Throwable) {
             Utils.showNotification(ktClass.project, MessageType.ERROR, t.message)
+        }
+    }
+
+    private fun addUnbindStatement() {
+        val function =
+            if (mIsActivity) {
+                Utils.findFunctionByName(ktClass, "onDestroy")
+            } else {
+                Utils.findFunctionByName(ktClass, "onDestroyView")
+            }
+        if (function != null) {
+            val body = function.bodyExpression as? KtBlockExpression
+            if (body != null) {
+                for (statement in body.statements) {
+                    if (statement.text.contains(".unbind()")) {
+                        return
+                    }
+                }
+                val last = body.statements.last()
+                body.addAfter(ktFactory.createExpression("mUnBinder.unbind()"), last)
+            }
+        } else {
+            val methodString = StringBuilder()
+
+            methodString.append("override fun onDestroy() {\n")
+            methodString.append("super.onDestroy()\n")
+            methodString.append("mUnBinder.unbind()\n")
+            methodString.append("}")
+            ktBody.addAfter(
+                ktFactory.createNewLine(),
+                ktClass.addBefore(ktFactory.createFunction(methodString.toString()), ktBody.rBrace)
+            )
         }
     }
 }

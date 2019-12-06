@@ -29,7 +29,16 @@ public class Utils {
 
     private static String[] sActivityClass = new String[]{
             "android.app.Activity",
-            "android.support.v7.app.AppCompatActivity"
+            "android.support.v4.app.SupportActivity",
+            "android.support.v7.app.FragmentActivity",
+            "android.support.v7.app.AppCompatActivity",
+            "androidx.activity.ComponentActivity",
+            "androidx.fragment.app.FragmentActivity",
+            "androidx.appcompat.app.AppCompatActivity"
+    };
+    private static String[] sRecyclerAdapterClass = new String[]{
+            "android.support.v7.widget.RecyclerView.Adapter",
+            "androidx.recyclerview.widget.RecyclerView.Adapter"
     };
     private static String[] sAdapterClass = new String[]{
             "android.widget.BaseAdapter",
@@ -37,8 +46,12 @@ public class Utils {
             "android.widget.ArrayAdapter",
             "android.widget.SimpleCursorAdapter",
             "android.widget.SimpleExpandableListAdapter",
-            "android.widget.HeaderViewListAdapter",
-            "android.support.v7.widget.RecyclerView.Adapter"
+            "android.widget.HeaderViewListAdapter"
+    };
+
+    private static String[] sRecyclerHolderClass = new String[]{
+            "android.support.v7.widget.RecyclerView.ViewHolder",
+            "androidx.recyclerview.widget.RecyclerView.ViewHolder"
     };
 
 
@@ -196,7 +209,15 @@ public class Utils {
     }
 
     public static boolean isJavaAdapter(@NotNull PsiFile psiFile, @NotNull PsiClass psiClass) {
-        return isJavaFitClass(psiFile, psiClass, sAdapterClass) || isAdapter(psiClass.getName());
+        return isJavaFitClass(psiFile, psiClass, sAdapterClass) || isJavaRecyclerAdapter(psiFile, psiClass) || isAdapter(psiClass.getName());
+    }
+
+    public static boolean isJavaRecyclerAdapter(@NotNull PsiFile psiFile, @NotNull PsiClass psiClass) {
+        return isJavaFitClass(psiFile, psiClass, sRecyclerAdapterClass);
+    }
+
+    public static boolean isJavaRecyclerHolder(@NotNull PsiFile psiFile, @NotNull PsiClass psiClass) {
+        return isJavaFitClass(psiFile, psiClass, sRecyclerHolderClass);
     }
 
     public static boolean isJavaFitClass(@NotNull PsiFile psiFile, @NotNull PsiClass psiClass, String... classArray) {
@@ -217,6 +238,13 @@ public class Utils {
 
     public static boolean isKotlinAdapter(@NotNull PsiFile psiFile, @NotNull KtClass ktClass) {
         return isKotlinFitClass(psiFile, ktClass, sAdapterClass) || isAdapter(ktClass.getName());
+    }
+    public static boolean isKotlinRecyclerAdapter(@NotNull PsiFile psiFile, @NotNull KtClass ktClass) {
+        return isKotlinFitClass(psiFile, ktClass, sRecyclerAdapterClass);
+    }
+
+    public static boolean isKotlinRecyclerHolder(@NotNull PsiFile psiFile, @NotNull KtClass ktClass) {
+        return isKotlinFitClass(psiFile, ktClass, sRecyclerHolderClass);
     }
 
     public static boolean isKotlinFitClass(@NotNull PsiFile psiFile, @NotNull KtClass ktClass, String... classArray) {

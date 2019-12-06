@@ -12,9 +12,14 @@ public class SettingsDialog extends JDialog {
     private JButton buttonCancel;
     private JCheckBox mKotlinLazy;
     private JComboBox<String> mModifierCombox;
+    private JCheckBox mButterKnife;
+    private JRadioButton mR2RadioButton;
+    private JRadioButton mRRadioButton;
+    private JCheckBox mButterKnifeBind;
+    private JCheckBox mButterKnifeUnBind;
 
     public SettingsDialog() {
-        setPreferredSize(new Dimension(300, 200));
+        setPreferredSize(new Dimension(400, 280));
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
@@ -25,6 +30,11 @@ public class SettingsDialog extends JDialog {
 
         mKotlinLazy.setSelected(Config.get().isKotlinLazy());
         mModifierCombox.setSelectedItem(Config.get().getModifierType().toLowerCase());
+
+        mButterKnife.setSelected(Config.get().isButterKnife());
+        mButterKnifeBind.setSelected(Config.get().isButterKnifeBind());
+        mButterKnifeUnBind.setSelected(Config.get().isButterKnifeUnBind());
+        mR2RadioButton.setSelected(Config.get().isButterKnifeR2());
 
         buttonOK.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -77,9 +87,17 @@ public class SettingsDialog extends JDialog {
 
     private void onOK() {
         saveModifierType();
+        saveButterKnife();
         Config.get().saveKotlinLazy(mKotlinLazy.isSelected());
         // add your code here if necessary
         dispose();
+    }
+
+    private void saveButterKnife() {
+        Config.get().saveButterKnife(mButterKnife.isSelected());
+        Config.get().saveButterKnifeLibrary(mR2RadioButton.isSelected());
+        Config.get().saveButterKnifeBind(mButterKnifeBind.isSelected());
+        Config.get().saveButterKnifeUnBind(mButterKnifeUnBind.isSelected());
     }
 
     private void onCancel() {

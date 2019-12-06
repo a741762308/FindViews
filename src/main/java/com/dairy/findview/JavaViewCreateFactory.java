@@ -1,25 +1,16 @@
 package com.dairy.findview;
 
-import com.intellij.codeInsight.actions.ReformatCodeProcessor;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.ui.MessageType;
 import com.intellij.psi.*;
-import com.intellij.psi.codeStyle.JavaCodeStyleManager;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-public class JavaViewCreateFactory extends BaseViewCreateFactory {
-
-    private PsiElementFactory factory;
-    private PsiClass psiClass;
-    private boolean mIsActivity;
+public class JavaViewCreateFactory extends BaseJavaViewCreateFactory {
 
     public JavaViewCreateFactory(@NotNull List<ResBean> resIdBeans, @NotNull PsiFile files, @NotNull PsiClass psiClass, AdapterType type) {
-        super(resIdBeans, files);
-        this.psiClass = psiClass;
-        mIsActivity = Utils.isJavaActivity(psiFile, psiClass);
-        factory = JavaPsiFacade.getElementFactory(psiClass.getProject());
+        super(resIdBeans, files, psiClass);
         mAdapterType = type.index;
     }
 
@@ -27,25 +18,22 @@ public class JavaViewCreateFactory extends BaseViewCreateFactory {
         this(resIdBeans, files, psiClass, AdapterType.ADAPTER_NONE);
     }
 
-    private Runnable mRunnable = new Runnable() {
-        @Override
-        public void run() {
-            try {
-                if (Utils.isJavaAdapter(psiFile, psiClass) || isAdapterType()) {
-                    //适配器
-                    generateAdapter();
-                } else {
-                    //生成成员变量
-                    generateFields();
-                    //生成方法
-                    generateFindViewById();
-                    //调用方法
-                    performFunction();
-                }
-                formatCode();
-            } catch (Throwable t) {
-                Utils.showNotification(psiClass.getProject(), MessageType.ERROR, t.getMessage());
+    private Runnable mRunnable = () -> {
+        try {
+            if (Utils.isJavaAdapter(psiFile, psiClass) || isAdapterType()) {
+                //适配器
+                generateAdapter();
+            } else {
+                //生成成员变量
+                generateFields();
+                //生成方法
+                generateFindViewById();
+                //调用方法
+                performFunction();
             }
+            formatCode();
+        } catch (Throwable t) {
+            Utils.showNotification(psiClass.getProject(), MessageType.ERROR, t.getMessage());
         }
     };
 
@@ -56,16 +44,6 @@ public class JavaViewCreateFactory extends BaseViewCreateFactory {
         }
     }
 
-    /**
-     * 格式化
-     */
-    @Override
-    protected void formatCode() {
-        JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(psiClass.getProject());
-        styleManager.optimizeImports(psiClass.getContainingFile());
-        styleManager.shortenClassReferences(psiClass);
-        new ReformatCodeProcessor(psiClass.getProject(), psiClass.getContainingFile(), null, false).runWithoutProgress();
-    }
 
     /**
      * 变量
@@ -84,10 +62,6 @@ public class JavaViewCreateFactory extends BaseViewCreateFactory {
         }
     }
 
-    private boolean isRecyclerViewAdapter() {
-        return isRecyclerAdapter() || psiClass.findMethodsByName("onCreateViewHolder", false).length != 0
-                && psiClass.findMethodsByName("onBindViewHolder", false).length != 0;
-    }
 
     /**
      * adapter
@@ -96,30 +70,12 @@ public class JavaViewCreateFactory extends BaseViewCreateFactory {
     protected void generateAdapter() {
         try {
             boolean recycler = isRecyclerViewAdapter();
-            PsiClass holderClass = null;
-            if (recycler) {
-                for (PsiClass inner : psiClass.getAllInnerClasses()) {
-                    if (Utils.isJavaFitClass(psiFile, inner, "android.support.v7.widget.RecyclerView.ViewHolder")) {
-                        holderClass = inner;
-                        break;
-                    }
-                }
-            } else {
-                for (PsiClass inner : psiClass.getAllInnerClasses()) {
-                    if (inner.getName() != null && inner.getName().contains("ViewHolder")) {
-                        holderClass = inner;
-                        break;
-                    }
-                }
-            }
+            PsiClass holderClass = getAdapterHolder(recycler);
             StringBuilder holderField = new StringBuilder();
             for (ResBean resBean : resBeans) {
                 if (resBean.isChecked()) {
-                    holderField.append("public ")
-                            .append(resBean.getFullName())
-                            .append(" ")
-                            .append(resBean.getFieldName())
-                            .append(";\n");
+                    holderField.append(resBean.getAdapterJavaFiled())
+                            .append("\n");
                 }
             }
             StringBuilder holderMethod = new StringBuilder();
@@ -149,10 +105,7 @@ public class JavaViewCreateFactory extends BaseViewCreateFactory {
                     String findId = "findViewById(" + resBean.getFullId() + ");";
                     if (methodBody == null || !methodBody.getText().contains(findId)) {
                         holderMethod.append("this.")
-                                .append(resBean.getFieldName())
-                                .append(" = ")
-                                .append("itemView.")
-                                .append(findId)
+                                .append(resBean.getJavaStatement("itemView"))
                                 .append("\n");
                     }
                 }
@@ -164,10 +117,9 @@ public class JavaViewCreateFactory extends BaseViewCreateFactory {
             holderField.append(holderMethod);
             if (holderClass == null) {
                 if (recycler) {
-                    String holdClass = "class ViewHolder extends RecyclerView.ViewHolder {" +
-                            holderField +
-                            "}";
-                    holderClass = factory.createClassFromText(holdClass, psiClass);
+                    holderField.insert(0, "class ViewHolder extends RecyclerView.ViewHolder {");
+                    holderField.append("}");
+                    holderClass = factory.createClassFromText(holderField.toString(), psiClass);
                     holderClass = holderClass.getInnerClasses()[0];
                 } else {
                     holderClass = factory.createClassFromText(holderField.toString(), psiClass);
@@ -191,7 +143,7 @@ public class JavaViewCreateFactory extends BaseViewCreateFactory {
                 PsiElementFactory holderFactory = JavaPsiFacade.getElementFactory(holderClass.getProject());
                 for (ResBean resBean : resBeans) {
                     if (holderClass.findFieldByName(resBean.getFieldName(), false) == null && resBean.isChecked()) {
-                        PsiField field = holderFactory.createFieldFromText("public " + resBean.getFullName() + " " + resBean.getFieldName() + ";", holderClass);
+                        PsiField field = holderFactory.createFieldFromText(resBean.getAdapterJavaFiled(), holderClass);
                         holderClass.add(field);
                     }
                 }
