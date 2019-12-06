@@ -16,8 +16,30 @@ public class CodeConstant {
     public static final String KOTLIN_VARIABLE_EXPRESSION = "%s = %sfindViewById(%s)";
 
 
+    public static final String BUTTER_KNIFE_ANNOTATION = "@BindView(%s) %s";
+
+    public static String getJavaButterKnifeFiled(String name, String fieldName, String fullId) {
+        return String.format(BUTTER_KNIFE_ANNOTATION, fullId, getJavaFiled(name, fieldName));
+    }
+
+    public static String getAdapterJavaButterKnifeFiled(String name, String fieldName, String fullId) {
+        return String.format(BUTTER_KNIFE_ANNOTATION, fullId, getAdapterJavaFiled(name, fieldName));
+    }
+
+    public static String getKotlinButterKnifeProperty(String name, String fieldName, String fullId) {
+        return String.format(BUTTER_KNIFE_ANNOTATION, fullId, getKotlinProperty(name, fieldName));
+    }
+
+    public static String getAdapterKotlinButterKnifeProperty(String name, String fieldName, String fullId) {
+        return String.format(BUTTER_KNIFE_ANNOTATION, fullId, getAdapterKotlinProperty(name, fieldName));
+    }
+
     public static String getJavaFiled(String name, String fieldName) {
         return String.format(JAVA_FILED, Config.get().getJavaModifier(), name, fieldName);
+    }
+
+    public static String getAdapterJavaFiled(String name, String fieldName) {
+        return String.format(JAVA_FILED, "", name, fieldName).substring(1);
     }
 
     public static String getJavaStatement(String fieldName, String view, String fullId) {
@@ -26,6 +48,10 @@ public class CodeConstant {
 
     public static String getKotlinProperty(String name, String fieldName) {
         return String.format(KOTLIN_PROPERTY, Config.get().getKotlinModifier(), fieldName, name);
+    }
+
+    public static String getAdapterKotlinProperty(String name, String fieldName) {
+        return String.format(KOTLIN_PROPERTY, "", fieldName, name);
     }
 
     public static String getKotlinAdapterProperty(String name, String fieldName) {
@@ -74,9 +100,20 @@ public class CodeConstant {
         sb.append("\n");
 
         sb.append("    inner class ViewHolder(itemView: View): RecyclerView.ViewHolder(itemView){\n");
-        for (ResBean bean : resBeans) {
-            if (bean.isChecked()) {
-                sb.append("        ").append(bean.getKotlinAdapterProperty("itemView")).append("\n");
+        if (Config.get().isButterKnife()) {
+            for (ResBean bean : resBeans) {
+                if (bean.isChecked()) {
+                    sb.append("        ").append(Config.get().isButterKnifeBind() ? bean.getAdapterKotlinButterKnifeProperty() : bean.getAdapterKotlinProperty()).append("\n");
+                }
+            }
+            sb.append("        init {\n" +
+                    "            ButterKnife.bind(this,itemView)\n" +
+                    "        }\n");
+        } else {
+            for (ResBean bean : resBeans) {
+                if (bean.isChecked()) {
+                    sb.append("        ").append(bean.getKotlinAdapterProperty("itemView")).append("\n");
+                }
             }
         }
         sb.append("    }\n");
@@ -113,15 +150,19 @@ public class CodeConstant {
         sb.append("    class ViewHolder extends RecyclerView.ViewHolder {\n");
         for (ResBean bean : resBeans) {
             if (bean.isChecked()) {
-                sb.append("        ").append(bean.getJavaFiled()).append("\n");
+                sb.append("        ").append(Config.get().isButterKnife() ? bean.getAdapterJavaButterKnifeFiled() : bean.getAdapterJavaFiled()).append("\n");
             }
         }
         sb.append("\n");
         sb.append("        public ViewHolder(View itemView) {\n");
         sb.append("            super(itemView);\n");
-        for (ResBean bean : resBeans) {
-            if (bean.isChecked()) {
-                sb.append("            ").append("this.").append(bean.getJavaStatement("itemView")).append("\n");
+        if (Config.get().isButterKnife()) {
+            sb.append("            ButterKnife.bind(this, itemView);\n");
+        } else {
+            for (ResBean bean : resBeans) {
+                if (bean.isChecked()) {
+                    sb.append("            ").append("this.").append(bean.getJavaStatement("itemView")).append("\n");
+                }
             }
         }
         sb.append("        }\n");

@@ -88,6 +88,7 @@ public class XMLDialog extends JDialog {
             SettingsDialog dialog = new SettingsDialog();
             dialog.pack();
             dialog.setLocationRelativeTo(null);
+            dialog.setAlwaysOnTop(true);
             dialog.setVisible(true);
         });
 

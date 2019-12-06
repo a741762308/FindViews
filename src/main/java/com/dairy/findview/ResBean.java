@@ -88,14 +88,38 @@ public class ResBean {
     }
 
     public String getFullId() {
+        return getFullId(false);
+    }
+
+    public String getFullId(boolean isR2) {
         if (isSystem) {
             return "android.R.id." + getId();
         }
-        return "R.id." + getId();
+        return (isR2 ? "R2.id." : "R.id.") + getId();
+    }
+
+    public String getJavaButterKnifeFiled() {
+        return CodeConstant.getJavaButterKnifeFiled(getName(), getFieldName(), getFullId(Config.get().isButterKnifeR2()));
+    }
+
+    public String getAdapterJavaButterKnifeFiled() {
+        return CodeConstant.getAdapterJavaButterKnifeFiled(getName(), getFieldName(), getFullId(Config.get().isButterKnifeR2()));
+    }
+
+    public String getKotlinButterKnifeProperty() {
+        return CodeConstant.getKotlinButterKnifeProperty(getName(), getFieldName(), getFullId(Config.get().isButterKnifeR2()));
+    }
+
+    public String getAdapterKotlinButterKnifeProperty() {
+        return CodeConstant.getAdapterKotlinButterKnifeProperty(getName(), getFieldName(), getFullId(Config.get().isButterKnifeR2()));
     }
 
     public String getJavaFiled() {
         return CodeConstant.getJavaFiled(getName(), getFieldName());
+    }
+
+    public String getAdapterJavaFiled() {
+        return CodeConstant.getAdapterJavaFiled(getName(), getFieldName());
     }
 
     public String getJavaStatement(String view) {
@@ -108,6 +132,10 @@ public class ResBean {
 
     public String getKotlinAdapterProperty() {
         return CodeConstant.getKotlinAdapterProperty(getName(), getFieldName());
+    }
+
+    public String getAdapterKotlinProperty() {
+        return CodeConstant.getAdapterKotlinProperty(getName(), getFieldName());
     }
 
     public String getKotlinAdapterProperty(String view) {
