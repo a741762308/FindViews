@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.findPropertyByName
 
-class KtButterKnifeCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull files: PsiFile, @NotNull private val ktClass: KtClass) :
+class KtButterKnifeCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull files: PsiFile, @NotNull ktClass: KtClass) :
     KtViewCreateFactory(resIdBeans, files, ktClass) {
 
 

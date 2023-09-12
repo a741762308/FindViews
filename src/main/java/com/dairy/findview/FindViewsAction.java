@@ -31,18 +31,18 @@ public class FindViewsAction extends AnAction {
 
                 if (Config.get().isButterKnife()) {
                     if (kotlin) {
-                        KtClass ktClass = getPsiClassFromEvent(editor);
+                        KtClass ktClass = Utils.getPsiClassFromEvent(editor);
                         factory = new KtButterKnifeCreateFactory(resBeans, psiFile, ktClass);
                     } else {
-                        PsiClass psiClass = getTargetClass(editor, psiFile);
+                        PsiClass psiClass = Utils.getTargetClass(editor, psiFile);
                         factory = new JavaButterKnifeCreateFactory(resBeans, psiFile, psiClass);
                     }
                 } else {
                     if (kotlin) {
-                        KtClass ktClass = getPsiClassFromEvent(editor);
+                        KtClass ktClass = Utils.getPsiClassFromEvent(editor);
                         factory = new KtViewCreateFactory(resBeans, psiFile, ktClass);
                     } else {
-                        PsiClass psiClass = getTargetClass(editor, psiFile);
+                        PsiClass psiClass = Utils.getTargetClass(editor, psiFile);
                         factory = new JavaViewCreateFactory(resBeans, psiFile, psiClass);
                     }
                 }
@@ -60,33 +60,5 @@ public class FindViewsAction extends AnAction {
             ex.printStackTrace();
         }
 
-    }
-
-    private KtClass getPsiClassFromEvent(Editor editor) {
-        assert editor != null;
-
-        Project project = editor.getProject();
-        if (project == null) return null;
-
-        PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
-        if (!(psiFile instanceof KtFile)) {
-            return null;
-        }
-        Location location = Location.fromEditor(editor, project);
-        PsiElement psiElement = psiFile.findElementAt(location.getStartOffset());
-        if (psiElement == null) return null;
-
-        return Utils.getKotlinClass(psiElement);
-    }
-
-    private PsiClass getTargetClass(Editor editor, PsiFile file) {
-        int offset = editor.getCaretModel().getOffset();
-        PsiElement element = file.findElementAt(offset);
-        if (element == null) {
-            return null;
-        } else {
-            PsiClass target = PsiTreeUtil.getParentOfType(element, PsiClass.class);
-            return target instanceof SyntheticElement ? null : target;
-        }
     }
 }

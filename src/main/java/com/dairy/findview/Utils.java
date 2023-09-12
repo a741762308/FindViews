@@ -14,12 +14,14 @@ import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
+import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.ui.awt.RelativePoint;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.kotlin.asJava.KotlinAsJavaSupport;
 import org.jetbrains.kotlin.asJava.elements.KtLightElement;
+import org.jetbrains.kotlin.idea.internal.Location;
 import org.jetbrains.kotlin.psi.*;
 
 import java.util.ArrayList;
@@ -165,6 +167,46 @@ public class Utils {
 
     public static String getXmlPath(@NotNull PsiFile psiFile) {
         return "R.layout." + psiFile.getName().replace(".xml", "");
+    }
+
+    public static String getViewBinding(@NotNull PsiFile psiFile){
+        String name = psiFile.getName().replace(".xml", "");
+        String[] names = name.split("_");
+        StringBuilder sb = new StringBuilder();
+        for (String word : names) {
+            sb.append(word.substring(0, 1).toUpperCase())
+                    .append(word.substring(1).toLowerCase());
+        }
+        sb.append("Binding");
+        return sb.toString();
+    }
+
+    public static KtClass getPsiClassFromEvent(Editor editor) {
+        assert editor != null;
+
+        Project project = editor.getProject();
+        if (project == null) return null;
+
+        PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
+        if (!(psiFile instanceof KtFile)) {
+            return null;
+        }
+        Location location = Location.fromEditor(editor, project);
+        PsiElement psiElement = psiFile.findElementAt(location.getStartOffset());
+        if (psiElement == null) return null;
+
+        return Utils.getKotlinClass(psiElement);
+    }
+
+    public static PsiClass getTargetClass(Editor editor, PsiFile file) {
+        int offset = editor.getCaretModel().getOffset();
+        PsiElement element = file.findElementAt(offset);
+        if (element == null) {
+            return null;
+        } else {
+            PsiClass target = PsiTreeUtil.getParentOfType(element, PsiClass.class);
+            return target instanceof SyntheticElement ? null : target;
+        }
     }
 
     public static PsiFile getFileByName(@NotNull PsiElement psiElement, @NotNull Project project, String name) {

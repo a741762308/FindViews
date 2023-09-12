@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.psi.*
 /**
  * Created by admin on 2019/7/26.
  */
-open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull files: PsiFile, @NotNull private val ktClass: KtClass) :
+open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull files: PsiFile, @NotNull ktClass: KtClass) :
     BaseKtViewCreateFactory(resIdBeans, files, ktClass) {
 
     private val mRunnable = Runnable {

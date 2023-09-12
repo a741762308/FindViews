@@ -32,6 +32,11 @@
             <add-to-group group-id="XmlGenerateToolsGroup" anchor="before" relative-to-action="GenerateDTD"/>
             <keyboard-shortcut keymap="$default" first-keystroke="meta U" second-keystroke="ctrl U"/>
         </action>
+        <action id="mergevies" class="com.dairy.findview.MergeViewAction" text="MergeView"
+                description="merge view to viewbinding">
+            <add-to-group group-id="GenerateGroup" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl M"/>
+        </action>
     </actions>
 
 </idea-plugin>
