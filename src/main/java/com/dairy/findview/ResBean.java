@@ -54,6 +54,10 @@ public class ResBean {
     }
 
     public String getFieldName() {
+        return getFieldName(nameType);
+    }
+
+    public String getFieldName(int nameType) {
         String fieldName = id;
         String[] names = id.split("_");
         if (nameType == 3) {

@@ -78,6 +78,14 @@ public class CodeConstant {
         }
     }
 
+    public String getGenerateAdapterBindingCode(List<ResBean> resBeans, boolean isKotlin, String className, String xmlPath) {
+        if (isKotlin) {
+            return generateKotlinBindingCode(resBeans, className, xmlPath);
+        } else {
+            return generateJavaBindingCode(resBeans, className, xmlPath);
+        }
+    }
+
     private static String generateKotlinCode(List<ResBean> resBeans, String className, String xmlPath) {
         final StringBuilder sb = new StringBuilder();
         sb.append("class ").append(className).append(": RecyclerView.Adapter<").append(className).append(".ViewHolder>() {\n");
@@ -169,5 +177,13 @@ public class CodeConstant {
         sb.append("    }\n");
         sb.append("}");
         return sb.toString();
+    }
+
+    private static String generateKotlinBindingCode(List<ResBean> resBeans, String className, String xmlPath) {
+        return "";
+    }
+
+    private static String generateJavaBindingCode(List<ResBean> resBeans, String className, String xmlPath) {
+        return "";
     }
 }

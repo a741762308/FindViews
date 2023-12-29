@@ -1,6 +1,8 @@
 package com.dairy.findview;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableColumn;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.Arrays;
@@ -11,6 +13,10 @@ public class MergeDialog extends JDialog {
     private JButton buttonOK;
     private JButton buttonCancel;
     private JCheckBox kotlinCheckBox;
+    private JComboBox<String> typeComboBox;
+    private JTable table;
+    private final TableModelProxy tableModel;
+
     private OnMergeClickListener mClickListener;
 
     public MergeDialog(List<ResBean> resBeanList) {
@@ -19,6 +25,47 @@ public class MergeDialog extends JDialog {
 
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
+
+        String[] columnNames = {"", "Element", "ID", "Name"};
+        tableModel = new TableModelProxy(columnNames, resBeanList);
+        table.setModel(tableModel);
+        table.setDragEnabled(false);
+        table.setCellSelectionEnabled(false);
+        table.setRowSelectionAllowed(false);
+        table.setShowHorizontalLines(true);
+        table.setShowVerticalLines(true);
+
+        TableColumn tableColumn = table.getColumnModel().getColumn(0);
+        tableColumn.setCellEditor(table.getDefaultEditor(Boolean.class));
+        tableColumn.setCellRenderer(table.getDefaultRenderer(Boolean.class));
+        tableColumn.setPreferredWidth(33);
+        tableColumn.setMaxWidth(33);
+        tableColumn.setMinWidth(33);
+
+        DefaultTableCellRenderer cellRenderer = new DefaultTableCellRenderer();
+        cellRenderer.setHorizontalAlignment(JLabel.CENTER);
+        cellRenderer.setVerticalAlignment(JLabel.CENTER);
+        table.setDefaultRenderer(Object.class, cellRenderer);
+
+        CheckBoxHeaderRenderer headerRenderer = new CheckBoxHeaderRenderer(table, tableModel);
+        table.getTableHeader().setReorderingAllowed(false);
+        table.getTableHeader().setDefaultRenderer(headerRenderer);
+
+        typeComboBox.addItem("aa_bb_cc");
+        typeComboBox.addItem("aaBbCc");
+        typeComboBox.addItem("mAaBbCc");
+        typeComboBox.setSelectedItem("mAaBbCc");
+        typeComboBox.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    for (ResBean bean : resBeanList) {
+                        bean.setNameType(typeComboBox.getSelectedIndex() + 1);
+                    }
+                }
+                tableModel.fireTableDataChanged();
+            }
+        });
 
         buttonOK.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {

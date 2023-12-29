@@ -39,11 +39,20 @@ public class JavaViewCreateFactory extends BaseJavaViewCreateFactory {
 
     @Override
     public void execute() {
+        executeBefore();
         if (psiFile != null) {
             WriteCommandAction.runWriteCommandAction(psiFile.getProject(), mRunnable);
         }
+        executeLast();
     }
 
+    protected void executeBefore() {
+
+    }
+
+    protected void executeLast() {
+
+    }
 
     /**
      * 变量
@@ -216,6 +225,7 @@ public class JavaViewCreateFactory extends BaseJavaViewCreateFactory {
                                 return;
                             } else if (statement.getText().contains("setContentView")) {
                                 setContentView = statement;
+                                break;
                             }
                         }
                         if (setContentView != null) {

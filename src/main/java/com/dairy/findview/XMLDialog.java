@@ -80,7 +80,7 @@ public class XMLDialog extends JDialog {
         mKotlinRadioButton.addItemListener(radioChangedListener);
         mJavaRadioButton.addItemListener(radioChangedListener);
 
-        mNameTextField.addFocusListener(new JTextFieldHintListener(mNameTextField, "please input adapter name，default TestAdapter"));
+        mNameTextField.addFocusListener(new JTextFieldHintListener(mNameTextField, "please input adapter name, default TestAdapter"));
 
         mTextArea.setText(CodeConstant.getGenerateAdapterCode(resBeanList, mKotlinRadioButton.isSelected(), getAdapterName(), xmlPath));
 

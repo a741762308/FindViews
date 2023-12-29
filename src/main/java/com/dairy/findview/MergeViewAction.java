@@ -5,6 +5,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.ui.MessageType;
+import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.kotlin.psi.KtClass;
@@ -17,14 +18,20 @@ public class MergeViewAction extends AnAction {
         try {
             PsiFile psiFile = e.getData(CommonDataKeys.PSI_FILE);
             Editor editor = e.getData(CommonDataKeys.EDITOR);
-            PsiFile layoutFile=Utils.getFileFromCaret(psiFile,editor);
+            PsiFile layoutFile = Utils.getFileFromCaret(psiFile, editor);
             List<ResBean> resBeans = Utils.getResBeanFromFile(psiFile, editor);
             MergeDialog dialog = new MergeDialog(resBeans);
             dialog.setClickListener(new OnMergeClickListener() {
                 @Override
                 public void onOk(boolean kotlin) {
-                    KtClass ktClass = Utils.getPsiClassFromEvent(editor);
-                    KtViewMergeFactory factory = new KtViewMergeFactory(resBeans, psiFile, layoutFile, ktClass);
+                    BaseViewCreateFactory factory;
+                    if (kotlin) {
+                        KtClass ktClass = Utils.getPsiClassFromEvent(editor);
+                        factory = new KtViewMergeFactory(resBeans, psiFile, layoutFile, ktClass);
+                    } else {
+                        PsiClass psiClass = Utils.getTargetClass(editor, psiFile);
+                        factory = new JavaViewMergeFactory(resBeans, psiFile, layoutFile,psiClass);
+                    }
                     if (resBeans.isEmpty()) {
                         Utils.showNotification(psiFile.getProject(), MessageType.WARNING, "No layout found or No IDs found in layout");
                     } else {

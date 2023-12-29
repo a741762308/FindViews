@@ -30,8 +30,18 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
         }
     }
 
+    protected open fun executeBefore() {
+
+    }
+
+    protected open fun executeLast() {
+
+    }
+
     override fun execute() {
+        executeBefore()
         WriteCommandAction.runWriteCommandAction(ktClass.project, mRunnable)
+        executeLast()
     }
 
     protected fun isRecyclerViewAdapter(): Boolean {
@@ -46,26 +56,7 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
     override fun generateAdapter() {
         try {
             val recycler = isRecyclerViewAdapter()
-            var holderClass: KtClass? = null
-            if (recycler) {
-                for (inner in ktClass.declarations.filter { it is KtClass }) {
-                    if (Utils.isKotlinRecyclerHolder(
-                            psiFile,
-                            inner as KtClass
-                        )
-                    ) {
-                        holderClass = inner
-                        break
-                    }
-                }
-            } else {
-                for (inner in ktClass.declarations.filter { it is KtClass }) {
-                    if (inner.name != null && inner.name!!.contains("ViewHolder")) {
-                        holderClass = inner as KtClass
-                        break
-                    }
-                }
-            }
+            var holderClass = getAdapterHolder(recycler)
             val holderField = StringBuilder()
             for (resBean in resBeans) {
                 if (resBean.isChecked) {
@@ -75,8 +66,6 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
                         holderField.append(" = ")
                             .append(findId)
                     }
-
-
                 }
             }
             if (holderClass == null) {
@@ -182,7 +171,7 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
                 }
             }
         } catch (t: Throwable) {
-            Utils.showNotification(ktClass.project, MessageType.ERROR, t.message)
+            //Utils.showNotification(ktClass.project, MessageType.ERROR, t.message)
         }
 
     }
@@ -220,7 +209,7 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
                 val findId = "findViewById(" + resBean.fullId + ")"
                 if (resBean.isChecked && !functionBody.text.contains(findId)) {
                     val block = StringBuilder()
-                    val e = functionBody.rBrace;
+                    val e = functionBody.rBrace
                     block.append(resBean.fieldName).append(" = ")
                     if (!mIsActivity) {
                         block.append("view.")

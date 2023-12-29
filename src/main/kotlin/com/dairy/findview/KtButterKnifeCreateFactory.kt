@@ -13,26 +13,7 @@ class KtButterKnifeCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @Not
     override fun generateAdapter() {
         try {
             val recycler = isRecyclerViewAdapter()
-            var holderClass: KtClass? = null
-            if (recycler) {
-                for (inner in ktClass.declarations.filter { it is KtClass }) {
-                    if (Utils.isKotlinRecyclerHolder(
-                            psiFile,
-                            inner as KtClass
-                        )
-                    ) {
-                        holderClass = inner
-                        break
-                    }
-                }
-            } else {
-                for (inner in ktClass.declarations.filter { it is KtClass }) {
-                    if (inner.name != null && inner.name!!.contains("ViewHolder")) {
-                        holderClass = inner as KtClass
-                        break
-                    }
-                }
-            }
+            var holderClass = getAdapterHolder(recycler)
             val holderField = StringBuilder()
             for (resBean in resBeans) {
                 if (resBean.isChecked) {

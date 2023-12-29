@@ -1,10 +1,7 @@
 package com.dairy.findview;
 
 import com.intellij.codeInsight.actions.ReformatCodeProcessor;
-import com.intellij.psi.JavaPsiFacade;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiElementFactory;
-import com.intellij.psi.PsiFile;
+import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.JavaCodeStyleManager;
 import org.jetbrains.annotations.NotNull;
 
@@ -53,5 +50,16 @@ public abstract class BaseJavaViewCreateFactory extends BaseViewCreateFactory {
         styleManager.optimizeImports(psiClass.getContainingFile());
         styleManager.shortenClassReferences(psiClass);
         new ReformatCodeProcessor(psiClass.getProject(), psiClass.getContainingFile(), null, false).runWithoutProgress();
+    }
+
+    protected void changeHolderModifier(PsiClass holderClass) {
+        if (holderClass.getModifierList() != null) {
+            if (!holderClass.hasModifierProperty(PsiModifier.PUBLIC)) {
+                holderClass.getModifierList().setModifierProperty(PsiModifier.PUBLIC, true);
+            }
+            if (!holderClass.hasModifierProperty(PsiModifier.STATIC)) {
+                holderClass.getModifierList().setModifierProperty(PsiModifier.STATIC, true);
+            }
+        }
     }
 }
