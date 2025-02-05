@@ -45,12 +45,9 @@ public class JavaViewMergeFactory extends JavaViewCreateFactory {
                 findMethod = holderClass.getConstructors()[0];
             }
             if (holderClass != null) {
-                for (ResBean bean : resBeans) {
-                    if (bean.isChecked()) {
-                        PsiField field = holderClass.findFieldByName(bean.getFieldName(), false);
-                        if (field != null) {
-                            field.delete();
-                        }
+                for (PsiField field : holderClass.getAllFields()) {
+                    if (mFieldMap.get(field.getName()) != null) {
+                        field.delete();
                     }
                 }
             }
@@ -72,7 +69,9 @@ public class JavaViewMergeFactory extends JavaViewCreateFactory {
             }
             if (methodBody != null) {
                 for (PsiStatement statement : methodBody.getStatements()) {
-                    if (!statement.getText().contains("findViewById") && !statement.getText().contains("super")) {
+                    if (!(statement.getText().contains("findViewById") && isAdapterField(statement))
+                            && !statement.getText().contains("super")
+                            && !statement.getText().contains("ButterKnife.")) {
                         holderMethod.append(replacePropertyName(statement.getText())).append("\n");
                     }
                 }
@@ -184,13 +183,24 @@ public class JavaViewMergeFactory extends JavaViewCreateFactory {
         }
     }
 
+    private boolean isAdapterField(PsiStatement statement) {
+        for (String filed : mFieldMap.keySet()) {
+            if (statement.getText().contains(filed)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     protected void generateFields() {
         try {
             boolean bindingExist = false;
             String bindingType = Utils.getViewBinding(layoutFile);
             for (PsiField field : psiClass.getFields()) {
-                if (mFieldMap.get(field.getName()) != null || "mRootView".equals(field.getName())) {
+                if (mFieldMap.get(field.getName()) != null
+                        || "mRootView".equals(field.getName())
+                        || "Unbinder".equals(field.getType().getCanonicalText())) {
                     field.delete();
                 } else {
                     if (!bindingExist) {
@@ -299,7 +309,14 @@ public class JavaViewMergeFactory extends JavaViewCreateFactory {
             replacePropertyName(statement);
 //        } else if (statement instanceof PsiLoopStatement) {
 //
-        } else if (statement.getText().contains("findViewById")) {
+        } else if (statement.getText().contains("=findViewById")
+                || statement.getText().contains("= findViewById")) {
+            //删除 findViewById
+            statement.delete();
+        } else if (statement.getText().contains("@BindView")
+                || statement.getText().contains("ButterKnife.")
+                || statement.getText().contains("UnBinder.")) {
+            //删除 ButterKnife
             statement.delete();
         } else {
             replacePropertyName(statement);
@@ -321,6 +338,7 @@ public class JavaViewMergeFactory extends JavaViewCreateFactory {
         String replace = text;
         int dot = -1;
         int _dot = -1;
+        boolean findId = text.contains("findViewById");
         for (Map.Entry<String, String> entry : mFieldMap.entrySet()) {
             dot = text.indexOf(entry.getKey());
             while (entry.getValue() != null) {

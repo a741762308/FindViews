@@ -1,11 +1,13 @@
 # FindViews
 [jetbrains](https://plugins.jetbrains.com/plugin/12609-findviews)
-[![release](https://img.shields.io/badge/Release-V5.0-blue.svg)](https://github.com/a741762308/FindViews/releases)
-[![License MIT](http://img.shields.io/badge/license-Apache2.0-orange.svg)](https://raw.githubusercontent.com/a741762308/FindViews/master/LICENSE)
+[![release](https://img.shields.io/badge/Release-V5.1-blue.svg)](https://github.com/a741762308/FindViews/releases)
+[![License Apache2.0](http://img.shields.io/badge/license-Apache2.0-orange.svg)](https://raw.githubusercontent.com/a741762308/FindViews/master/LICENSE)
 
 This is a plugin to auto generator findViewById code in activity, fragment and adapter,
 support java and kotlin.The latest version support viewBinding.
-
+1. 【ctrl U】Auto generate findViewById code in activity ,fragment or adapter etc,and support Kotlin or Java.<br>
+2. 【ctrl M】Merge findViewById or  butterknife to ViewBinding.<br>
+   
 ## Install   
 - <kbd>Preferences/File</kbd> -> <kbd>Settings</kbd> -> <kbd>Plugins</kbd> -> <kbd>Marketplace</kbd> -> <kbd>Search for "FindViews"</kbd> -> <kbd>Install Plugin</kbd>
 - Manually:
@@ -27,6 +29,8 @@ support java and kotlin.The latest version support viewBinding.
  ![xml](/screenshot/xml.gif) 
   
  ## Version Info
+ V5.1 Merge ButterKnife to ViewBinding
+
  V5.0 Merge findViewById to ViewBinding
 
  V4.0 Support ButterKnife.

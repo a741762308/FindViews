@@ -5,6 +5,7 @@ import com.intellij.psi.PsiFile
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.findPropertyByName
+import java.util.regex.Pattern
 
 class KtButterKnifeCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNull files: PsiFile, @NotNull ktClass: KtClass) :
     KtViewCreateFactory(resIdBeans, files, ktClass) {
@@ -45,16 +46,19 @@ class KtButterKnifeCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @Not
                 var params: String? = null
                 if (findMethod == null) {
                     if (recycler) {
-                        holderMethod.append("constructor(itemView: View) : super(itemView) {\nButterKnife.bind(this,view)\n")
+                        holderMethod.append("constructor(itemView: View) : super(itemView) {\n")
                     } else {
-                        holderMethod.append("constructor(itemView: View){\nButterKnife.bind(this,view)\n")
+                        holderMethod.append("constructor(itemView: View){\n")
                     }
                 } else {
                     params = findMethod.getValueParameterList()?.parameters?.get(0)?.name
                     if (methodBody != null && !methodBody.text.isEmpty()) {
                         holderMethod.append(methodBody.text)
                         holderMethod.deleteCharAt(holderMethod.length - 1)
+                    } else {
+                        //Utils.showNotification(ktClass.project, MessageType.ERROR, methodBody?.text ?: "null")
                     }
+                    //Utils.showNotification(ktClass.project, MessageType.ERROR, holderMethod.toString())
                 }
                 val methodSize = holderMethod.length
 
@@ -68,18 +72,71 @@ class KtButterKnifeCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @Not
                 resBeans
                     .filter { it.isChecked && !oldFiled.contains(it.fieldName) }
                     .map {
-                        ktFactory.createProperty("lateinit var ${it.fieldName}: ${it.name}")
+                        ktFactory.createProperty(it.adapterKotlinButterKnifeProperty)
                     }
                     .forEach { body.addBefore(ktFactory.createNewLine(), body.addAfter(it, e)) }
 
                 if (methodSize <= 0) {
-                    holderClass.addBefore(
-                        ktFactory.createExpression("init {\nButterKnife.bind(this,view)\n}\n"),
-                        body.rBrace
-                    )
+                    if (methodBody?.text.isNullOrEmpty()) {
+                        findMethod?.run {
+                            //Utils.showNotification(ktClass.project, MessageType.ERROR, findMethod.getText())
+                            if (getText().contains("constructor(view:")
+                                || getText().contains("constructor(itemView:")
+                            ) {
+                                if (findMethod is KtPrimaryConstructor) {
+                                    holderClass.getAnonymousInitializers().firstOrNull()?.let {
+                                        it.addBefore(
+                                            ktFactory.createExpression("ButterKnife.bind(this,view)"),
+                                            it.lastChild
+                                        )
+                                    } ?: run {
+                                        //init 代码块
+                                        val init = ktFactory.createAnonymousInitializer()
+                                        init.body?.run {
+                                            addBefore(
+                                                ktFactory.createExpression("ButterKnife.bind(this,view)"),
+                                                lastChild
+                                            )
+                                        }
+                                        holderClass.addBefore(init, body.rBrace)
+                                    }
+                                } else {
+                                    val methodSb = StringBuilder(getText())
+                                    methodSb.append("{").append("\n")
+                                    methodSb.append("ButterKnife.bind(this,view)\n}\n")
+                                    replace(ktFactory.createSecondaryConstructor(methodSb.toString()))
+                                }
+                            } else if (Pattern.matches("^\\(\\w+?:\\s*?View\\s*?\\)\$", getText())) {
+                                //主构造，没有方法体
+                                holderClass.getAnonymousInitializers().firstOrNull()?.let {
+                                    it.addBefore(
+                                        ktFactory.createExpression("ButterKnife.bind(this,view)"),
+                                        it.lastChild
+                                    )
+                                } ?: run {
+                                    //init 代码块
+                                    val init = ktFactory.createAnonymousInitializer()
+                                    init.body?.run {
+                                        addBefore(
+                                            ktFactory.createExpression("ButterKnife.bind(this,view)"),
+                                            lastChild
+                                        )
+                                    }
+                                    holderClass.addBefore(init, body.rBrace)
+                                }
+                            } else {
+                                //Utils.showNotification(ktClass.project, MessageType.ERROR, findMethod.getText())
+                            }
+                        }
+                    } else {
+                        holderClass.addBefore(
+                            ktFactory.createExpression("init {\nButterKnife.bind(this,view)\n}\n"),
+                            body.rBrace
+                        )
+                    }
                     return
                 }
-                holderMethod.append("ButterKnife.bind(this,${params ?: "view"})")
+                holderMethod.append("ButterKnife.bind(this,${params ?: "view"})\n")
                 methodBody?.delete()
                 holderMethod.append("}")
                 if (findMethod == null) {

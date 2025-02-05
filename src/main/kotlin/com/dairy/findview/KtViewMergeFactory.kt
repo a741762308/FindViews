@@ -26,8 +26,6 @@ class KtViewMergeFactory(
         try {
             val recycler = isRecyclerViewAdapter()
             var holderClass = getAdapterHolder(recycler)
-            //需要全局替换的属性
-            val replaceProperty = HashSet<String?>()
             val binding = Utils.getViewBinding(layoutFile)
             if (holderClass == null) {
                 val holdClass: String = if (recycler) {
@@ -38,17 +36,11 @@ class KtViewMergeFactory(
                 holderClass = ktFactory.createClass(holdClass)
                 ktBody.addBefore(holderClass, ktBody.rBrace)
             } else {
-                //删除find成员属性
-                holderClass.getProperties().run {
-//                    val deleteProperty = StringBuilder()
-                    forEach {
-                        if (!recycler || it.text.contains("findViewById")) {
-//                            deleteProperty.append(it.text).append("\n")
-//                            replaceProperty.add(it.name)
-                            it.delete()
-                        }
+                //删除成员属性
+                holderClass.getProperties().forEach {
+                    if (propertyMap[it.name] != null) {
+                        it.delete()
                     }
-//                    Utils.showNotification(ktClass.project, MessageType.ERROR, deleteProperty.toString())
                 }
 
                 var findMethods =
@@ -59,7 +51,7 @@ class KtViewMergeFactory(
                 }
                 val findMethod = findMethods.firstOrNull()
                 val methodBody: KtBlockExpression? = findMethod?.getBodyExpression()
-                val body = holderClass.body!!
+                val body = holderClass.getOrCreateBody()
                 if (findMethod == null) {
                     if (recycler) {
                         holderClass.addBefore(
@@ -73,6 +65,13 @@ class KtViewMergeFactory(
                         )
                     }
                 } else {
+                    //init 代码块
+                    holderClass.getAnonymousInitializers().forEach {
+                        //Utils.showNotification(ktClass.project, MessageType.ERROR, it.body?.text ?: "init{}")
+                        (it.body as? KtBlockExpression)?.statements?.forEach {
+                            it.mergePropertyName(isAdapter = true)
+                        }
+                    }
                     val params = findMethod.getValueParameterList()?.parameters?.firstOrNull()
                     if (params != null && (params.text.contains(":View") || params.text.contains(": View"))) {
                         if (findMethod is KtPrimaryConstructor) {
@@ -99,12 +98,15 @@ class KtViewMergeFactory(
                             //删除find语句保留其他语句
                             val functionBody = StringBuilder()
                             methodBody?.statements?.forEach {
-                                if (!it.text.contains("findViewById")) {
-                                    functionBody.append(it.text).append("\n")
-                                } else {
-                                    val name = it.text.substring(0, it.text.indexOf("="))
-                                    if (!name.contains("val") && !name.contains("var")) {
-                                        replaceProperty.add(name.replace(" ", ""))
+                                if (!it.text.contains("ButterKnife.")) {
+                                    if (!it.text.contains("findViewById")) {
+                                        functionBody.append(it.text).append("\n")
+                                    } else if (it.text.contains("=")) {
+                                        val name = it.text.substring(0, it.text.indexOf("="))
+                                        if (!name.contains("val") && !name.contains("var")) {
+                                            functionBody.append(it.replacePropertyName())
+                                                .append("\n")
+                                        }
                                     }
                                 }
                             }
@@ -130,7 +132,7 @@ class KtViewMergeFactory(
                     )
                 }
                 onCreate = Utils.findFunctionByName(ktClass, "onCreateViewHolder")
-                val body = onCreate.bodyBlockExpression
+                val body = onCreate.bodyExpression as? KtBlockExpression
                 body?.statements?.run {
                     if (isEmpty()) {
                         body.addAfter(createBinding, body.addAfter(ktFactory.createNewLine(), body.lBrace))
@@ -142,10 +144,10 @@ class KtViewMergeFactory(
                             body.addBefore(createBinding, body.addBefore(ktFactory.createNewLine(), returnView))
                         } else {
                             find { it.text.contains(Utils.getXmlPath(layoutFile)) }?.replace(createBinding)
-                            find { it.text.contains(createBinding.text) } ?: body.addBefore(
-                                createBinding,
-                                body.addBefore(ktFactory.createNewLine(), returnView)
-                            )
+                                ?: find { it.text.contains(createBinding.text) } ?: body.addBefore(
+                                    createBinding,
+                                    body.addBefore(ktFactory.createNewLine(), returnView)
+                                )
                         }
                         returnView.replace(ktFactory.createExpression("return ViewHolder(binding)"))
                     }
@@ -159,7 +161,7 @@ class KtViewMergeFactory(
                     )
                 } else {
                     //替换属性为binding
-                    onBind.bodyBlockExpression?.statements?.replaceAdapterPropertyName()
+                    (onBind.bodyExpression as? KtBlockExpression)?.statements?.replaceAdapterPropertyName()
                 }
             } else {
                 val getView = Utils.findFunctionByName(ktClass, "getView")
@@ -170,7 +172,7 @@ class KtViewMergeFactory(
                     )
                 } else {
                     //替换属性为binding
-                    val body = getView.bodyBlockExpression
+                    val body = getView.bodyExpression as? KtBlockExpression
                     body?.statements?.forEach {
                         it.mergeBaseAdapterPropertyName(body, binding)
                     }
@@ -193,7 +195,7 @@ class KtViewMergeFactory(
             var bindingExist = false
             //删掉属性
             ktClass.getProperties().forEach {
-                if (propertyMap[it.name] != null || it.name == "mRootView") {
+                if (propertyMap[it.name] != null || it.name == "mRootView" || it.typeReference?.text == "Unbinder") {
                     it.delete()
                 } else {
                     if (!bindingExist) {
@@ -232,7 +234,8 @@ class KtViewMergeFactory(
             if (mIsActivity) {
                 val function = Utils.findFunctionByName(ktClass, "onCreate")
                 if (function != null) {
-                    function.bodyBlockExpression?.statements?.find {
+                    val body: KtBlockExpression? = function.bodyExpression as? KtBlockExpression
+                    body?.statements?.find {
                         it.text.contains("setContentView") &&
                                 !it.text.contains("binding.root")
                     }
@@ -243,7 +246,7 @@ class KtViewMergeFactory(
                 if (function != null) {
                     val binding = Utils.getViewBinding(layoutFile)
                     val bindingString = "$binding.inflate(inflater, container, false)"
-                    val body = function.bodyBlockExpression ?: return
+                    val body = function.bodyExpression as? KtBlockExpression ?: return
                     body.statements.let {
                         val returnView = it.last()
                         if (returnView.text.contains(Utils.getXmlPath(layoutFile))) {
@@ -283,9 +286,9 @@ class KtViewMergeFactory(
             //替换属性为binding
             ktClass.declarations.filterIsInstance<KtFunction>()
                 //去掉自定义布局
-                .filter { it.bodyBlockExpression?.text?.contains("R.layout") == false }
+                .filter { it.bodyExpression?.text?.contains("R.layout") == false }
                 .forEach { fuc ->
-                    fuc.bodyBlockExpression?.statements?.forEach {
+                    (fuc.bodyExpression as? KtBlockExpression)?.statements?.forEach {
                         it.mergePropertyName()
                     }
                 }
@@ -320,7 +323,7 @@ class KtViewMergeFactory(
                 replace(ktFactory.createExpression("view = binding.root"))
                 //Utils.showNotification(ktClass.project, MessageType.ERROR, text)
             }
-        } else if (text.contains("ViewHolder()")) {
+        } else if (text.contains("ViewHolder(")) {
             //previousStatement()?.replace(ktFactory.createExpression("view = binding.root"))
             replace(ktFactory.createExpression("holder = ViewHolder(binding)"))
         } else if (text.contains("findViewById")) {
@@ -330,7 +333,7 @@ class KtViewMergeFactory(
         }
     }
 
-    private fun KtExpression.mergePropertyName() {
+    private fun KtExpression.mergePropertyName(isAdapter: Boolean = false) {
         if (this is KtIfExpression) {
             condition?.replacePropertyName()
             then?.replacePropertyName()
@@ -360,9 +363,64 @@ class KtViewMergeFactory(
 //                Utils.showNotification(ktClass.project, MessageType.ERROR,  it.getLambdaExpression()?.text?:"")
 //            }
         } else if (text.contains("findViewById")) {
+            //删除 findViewById
+            if (isAdapter) {
+                if (isAdapterField()) {
+                    delete()
+                } else {
+                    replaceFindById()
+                }
+            } else if (text.contains("=")) {
+                if (text.indexOf("=") <= text.indexOf("findViewById")) {
+                    delete()
+                } else {
+                    replaceFindById()
+                }
+            }
+        } else if (text.contains("@BindView")
+            || text.contains("ButterKnife.")
+            || text.contains("UnBinder.")
+        ) {
+            //删除 ButterKnife
             delete()
         } else {
             replacePropertyName()
+        }
+    }
+
+    private fun KtExpression.isAdapterField(): Boolean {
+        for (filed in propertyMap.keys) {
+            if (text.contains(filed)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun KtExpression.replaceFindById() {
+        if (text.contains("findViewById")) {
+            resBeans.forEach {
+                if (text.contains(it.fullId) && it.isChecked) {
+                    var string = "findViewById<${it.name}>(${it.fullId})"
+                    if (!text.contains(string)) {
+                        string = "findViewById(${it.fullId})"
+                    }
+                    if (text.contains(".findViewById")) {
+                        if (text.contains("view.")) {
+                            string = "view.$string"
+                        } else if (text.contains("itemView.")) {
+                            string = "itemView.$string"
+                        }
+                    }
+                    if (text.contains(string)) {
+                        val statement = text.replace(string, "binding.${it.getFieldName(2)}")
+                        replace(ktFactory.createExpression(statement))
+                    } else {
+                        //Utils.showNotification(ktClass.project, MessageType.INFO, text)
+                    }
+                    return@replaceFindById
+                }
+            }
         }
     }
 
@@ -416,7 +474,7 @@ class KtViewMergeFactory(
                 }
             }
             var replace = text
-            dot1.forEachIndexed { index, _ ->
+            for (index in 0 until dot1.size) {
                 val name = text.substring(dot1[index], dot2[index])
                 //Utils.showNotification(ktClass.project, MessageType.ERROR, name)
                 propertyMap[name]?.let { id ->

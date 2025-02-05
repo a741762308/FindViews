@@ -67,6 +67,8 @@ public class MergeDialog extends JDialog {
             }
         });
 
+        kotlinCheckBox.setSelected(Config.get().getFileType() == FileType.KOTLIN);
+
         buttonOK.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 onOK();

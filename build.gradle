@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'com.dongqing.plugin'
-version '5.0'
+version '5.1'
 
 sourceCompatibility = 1.8
 
@@ -41,9 +41,10 @@ patchPluginXml {
       1. 【ctrl U】Auto generate findViewById code in activity ,fragment or adapter etc,and support Kotlin or Java.<br>
       2. 【ctrl M】Merge findViewById or  butterknife to ViewBinding.<br>
       自动生成activity、fragment、adapter等findViewById代码，支持Kotlin和Java(快捷键ctrl U).<br>
-      替换findViewById为ViewBinding(快捷键ctrl M).<br>
+      替换findViewById、ButterKnife为ViewBinding(快捷键ctrl M).<br>
      """
     changeNotes = """
+      5.1 Support merge ButterKnife to ViewBinding(ButterKnife替换为ViewBinding).<br>
       5.0 Merge findViewById to ViewBinding(一键替换为ViewBinding).<br>
       4.0 Support ButterKnife(支持黄油刀).<br>
       3.2 Add xml generate adapter(支持xml生成Adapter).<br>

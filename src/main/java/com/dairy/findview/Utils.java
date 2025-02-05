@@ -21,7 +21,6 @@ import com.intellij.ui.awt.RelativePoint;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.kotlin.asJava.KotlinAsJavaSupport;
 import org.jetbrains.kotlin.asJava.elements.KtLightElement;
-import org.jetbrains.kotlin.idea.internal.Location;
 import org.jetbrains.kotlin.psi.*;
 
 import java.util.ArrayList;
@@ -169,7 +168,7 @@ public class Utils {
         return "R.layout." + psiFile.getName().replace(".xml", "");
     }
 
-    public static String getViewBinding(@NotNull PsiFile psiFile){
+    public static String getViewBinding(@NotNull PsiFile psiFile) {
         String name = psiFile.getName().replace(".xml", "");
         String[] names = name.split("_");
         StringBuilder sb = new StringBuilder();
@@ -191,8 +190,10 @@ public class Utils {
         if (!(psiFile instanceof KtFile)) {
             return null;
         }
-        Location location = Location.fromEditor(editor, project);
-        PsiElement psiElement = psiFile.findElementAt(location.getStartOffset());
+        //2023.3.2 Location被删除
+//        Location location = Location.fromEditor(editor, project);
+//        PsiElement psiElement = psiFile.findElementAt(location.getStartOffset());
+        PsiElement psiElement = psiFile.findElementAt(editor.getCaretModel().getOffset());
         if (psiElement == null) return null;
 
         return Utils.getKotlinClass(psiElement);
@@ -281,6 +282,7 @@ public class Utils {
     public static boolean isKotlinAdapter(@NotNull PsiFile psiFile, @NotNull KtClass ktClass) {
         return isKotlinFitClass(psiFile, ktClass, sAdapterClass) || isAdapter(ktClass.getName());
     }
+
     public static boolean isKotlinRecyclerAdapter(@NotNull PsiFile psiFile, @NotNull KtClass ktClass) {
         return isKotlinFitClass(psiFile, ktClass, sRecyclerAdapterClass);
     }

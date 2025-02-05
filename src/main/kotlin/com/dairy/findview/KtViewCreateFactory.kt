@@ -103,7 +103,7 @@ open class KtViewCreateFactory(@NotNull resIdBeans: MutableList<ResBean>, @NotNu
                 }
                 val methodSize = holderMethod.length
 
-                val body = holderClass.getBody()!!
+                val body = holderClass.getOrCreateBody()
                 //最后一个成员变量
                 val p = holderClass.getProperties().lastOrNull()
                 //所有成员变量
